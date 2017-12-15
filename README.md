@@ -2,6 +2,7 @@
 
 Java Serial Terminal V 0.10
 
+
 Working both Linux (Mint 18.2) and Windows (Windows 10) with java version "1.8.0_151".
 
 # Screenshot
