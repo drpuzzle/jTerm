@@ -1,0 +1,46 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : 01.12.2017, 13:44:00
+    Author     : fuerst
+*/
+
+.spinner .increment-arrow-button,
+.spinner .decrement-arrow-button {
+    /*-fx-body-color: yellow;*/    
+    -fx-padding: 0 4 0  4;
+}
+
+/* Spinner - STYLE_CLASS_ARROWS_ON_RIGHT_HORIZONTAL */
+.spinner.arrows-on-right-horizontal .increment-arrow-button {
+    -fx-background-radius: 0 3 3 0, 0 2 2 0, 0 1 1 0;
+    -fx-background-insets: 0 0 0 -1, 1 1 1 0, 2 2 2 1;
+    -fx-body-color: green;
+}
+.spinner.arrows-on-right-horizontal .decrement-arrow-button {
+    -fx-background-radius: 0;
+    -fx-background-insets: 0, 1, 2;
+}
+
+.red {
+    -fx-fill: red;
+    -fx-font-size:11;
+    -fx-font-family: FreeMono2;    
+}
+
+.green {
+    -fx-fill: green;
+    -fx-font-size:11;
+    -fx-font-family: FreeMono2;    
+}
+
+.blue {
+    -fx-fill: blue;
+}
+
+.bold {
+    -fx-font-weight: bold;
+}
