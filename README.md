@@ -3,7 +3,7 @@
 Java Serial Terminal V 0.10
 
 
-Working both Linux (Mint 18.2) and Windows (Windows 10) with java version "1.8.0_151".
+Working both Linux (Mint 18.2) and Windows (Windows 10) with java version "1.8.0_151". Continous scan of available Serial Ports to update list of Ports.
 
 # Screenshot
 ![Screenshot](jTerm_screenshot.png?raw=true "Screenshot V0.10")

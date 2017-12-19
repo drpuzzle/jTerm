@@ -9,6 +9,7 @@ import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 /**
@@ -26,6 +27,9 @@ public class SerialMonitor extends Application {
     Scene scene = new Scene(root);
     stage.setTitle("JTerm "+Version);
     scene.getStylesheets().add(SerialMonitor.class.getResource("/stylesheet.css").toExternalForm());
+    stage.getIcons().add(new Image(getClass()
+            .getResourceAsStream("/puzzle_small.png")
+    ));
     stage.setScene(scene);
     stage.show();
   }
