@@ -7,7 +7,7 @@ package serialmonitor;
 
 /**
  *
- * @author fuerst
+ * @author drpuzzle
  */
 public class ByteData {
   

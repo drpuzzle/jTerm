@@ -9,7 +9,7 @@ import javafx.beans.property.ListProperty;
 
 /**
  *
- * @author fuerst
+ * @author drpuzzle
  */
 public interface MonitorRunnable extends  Runnable {
 

@@ -28,7 +28,7 @@ import org.apache.log4j.Logger;
 
 /**
  *
- * @author fuerst
+ * @author drpuzzle
  */
 @XmlRootElement(name = "SerialInterface")
 @XmlAccessorType(XmlAccessType.NONE)

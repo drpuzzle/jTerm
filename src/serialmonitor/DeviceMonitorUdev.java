@@ -21,7 +21,7 @@ import org.freedesktop.libudev.Monitor;
 
 /**
  *
- * @author fuerst
+ * @author drpuzzle
  */
 public class DeviceMonitorUdev implements MonitorRunnable {
 

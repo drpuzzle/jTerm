@@ -45,10 +45,8 @@ import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
-import javafx.scene.control.TreeView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
@@ -69,7 +67,7 @@ import org.reactfx.value.Val;
 
 /**
  *
- * @author fuerst
+ * @author drpuzzle
  */
 public class FXMLDocumentController implements Initializable {
 

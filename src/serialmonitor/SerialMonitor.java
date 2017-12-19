@@ -14,7 +14,7 @@ import javafx.stage.Stage;
 
 /**
  *
- * @author fuerst
+ * @author drpuzzle
  */
 public class SerialMonitor extends Application {
   String Version = "0.10";

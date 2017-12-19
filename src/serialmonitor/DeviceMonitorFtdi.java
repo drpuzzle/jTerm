@@ -19,7 +19,7 @@ import org.apache.log4j.Logger;
 
 /**
  *
- * @author fuerst
+ * @author drpuzzle
  */
 public class DeviceMonitorFtdi implements MonitorRunnable {
 
