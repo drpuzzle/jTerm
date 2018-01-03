@@ -7,8 +7,11 @@ package serialmonitor;
 
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.Timer;
@@ -28,6 +31,7 @@ import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
@@ -41,26 +45,34 @@ import javafx.scene.control.RadioButton;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextFormatter;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontPosture;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.stage.Popup;
 import javafx.util.StringConverter;
 import org.apache.log4j.Logger;
 import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.fxmisc.richtext.Caret;
 import org.fxmisc.richtext.GenericStyledArea;
+
 import org.fxmisc.richtext.StyleClassedTextArea;
+import org.fxmisc.richtext.event.MouseOverTextEvent;
 import org.fxmisc.richtext.model.Paragraph;
 import org.reactfx.collection.LiveList;
 import org.reactfx.value.Val;
@@ -154,6 +166,8 @@ public class FXMLDocumentController implements Initializable {
   SerialInterface serial = new SerialInterface();
 
   Timer timer = null;
+   MaskField myMaskField    = new MaskField();
+
 
   List<String> historyList = new ArrayList<>();
 
@@ -162,7 +176,7 @@ public class FXMLDocumentController implements Initializable {
     if (serial.isConnected()) {
 
       // textfieldentry
-      String str = sendTextField.getText();
+      String str = myMaskField.getPlainText();
 
       // remove from history list
       if (historyList.contains(str)) {
@@ -191,7 +205,7 @@ public class FXMLDocumentController implements Initializable {
       serial.write(str);
 
       // clear textfield
-      sendTextField.setText("");
+      myMaskField.clear();//setText("");
     }
   }
 
@@ -290,7 +304,21 @@ public class FXMLDocumentController implements Initializable {
   
   
   
-  
+  private long getSelectedTime(int selectedCharIndex){
+    String s = mainTextArea.getText();
+    // get number of LF    
+    int numberOfLF = s.substring(0, selectedCharIndex).split("\n").length;
+    
+//    logger.info("Selected Index: "+selectedCharIndex+", #LF: "+numberOfLF);
+    int currentPos=0;  
+    for (DisplayData dd : dataList.get()){
+      currentPos += dd.bytes.length();
+      if (currentPos > (selectedCharIndex-numberOfLF)){
+        return dd.timestamp;
+      }
+    }
+    return 0;
+  }
 
   // function called every 10 ms
   private void updateTextField() {
@@ -369,13 +397,18 @@ public class FXMLDocumentController implements Initializable {
       if (((RadioButton) formatToggleGroup.getSelectedToggle()).getText().equals("ASCII")) {
         // replace LF with symbol
         newString = dd.bytes.replace("\n", "\u2424");
+        // replace carrage return
+        newString = newString.replace("\r", "\u240D");
         // replace NULL string with symbol
         newString = newString.replace("\0", "\u2400");
         // replace TAB with symbol
         newString = newString.replace("\t", "\u2409");
 
+        
         // if newline at LF is selected add newline
-        if ("LF".equals(linefeedCombo.getSelectionModel().getSelectedItem())) {
+        if ("CR+LF".equals(linefeedCombo.getSelectionModel().getSelectedItem())) {
+          newString = newString.replace("\u240D\u2424", "\u240D\u2424\n");
+        } else if ("LF".equals(linefeedCombo.getSelectionModel().getSelectedItem())) {
           newString = newString.replace("\u2424", "\u2424\n");
         }
         
@@ -442,10 +475,13 @@ public class FXMLDocumentController implements Initializable {
         if (requestclearCopy) {
           mainTextArea.clear();
         }
-
+        
+        int start = mainTextArea.getSelection().getStart();
+        int caretPosition = mainTextArea.getCaretPosition();
         // append new string to area
         mainTextArea.appendText(bufferStr);
-
+        
+        
         // do appropriate style 
         if (bufferDirection == BYTE_READ) {
           mainTextArea.setStyleClass(mainTextArea.getText().length() - bufferStr.length(), mainTextArea.getText().length(), "green");
@@ -456,6 +492,9 @@ public class FXMLDocumentController implements Initializable {
         // if autoscroll then last paragraph is alwaiys selected
         if (autoscrollCheck.isSelected()) {
           mainTextArea.showParagraphAtBottom(mainTextArea.getCurrentParagraph());
+        }
+        else{
+          mainTextArea.selectRange(start, caretPosition);
         }
 
       });
@@ -476,8 +515,24 @@ public class FXMLDocumentController implements Initializable {
 
   }
 
+  
+  private String formatDifference(long diff){
+    String rv="";
+    
+    if (diff>1000){
+      rv = ""+ (diff/1000)+"."+String.format("%03d",diff%1000)+" s";
+    }
+    else{
+      rv = ""+diff+" ms";
+    }
+    return rv;
+  }
+  
   @Override
-  public void initialize(URL url, ResourceBundle rb) {
+  public void initialize(URL url, ResourceBundle rb) { 
+//   logger.info("" + FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMono.ttf"));
+//    logger.info("" + FXMLDocumentController.class.getResourceAsStream("/SourceCodePro-Bold_mod.ttf"));
+    
     // TODO
     parityCombo.getItems().removeAll(baudRateCombo.getItems());
     parityCombo.getItems().addAll(Arrays.stream(SerialInterface.Parity.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.name())).toArray(String[]::new));
@@ -567,13 +622,41 @@ public class FXMLDocumentController implements Initializable {
       }
     });
 
+    
+    myMaskField = new MaskField();
+    myMaskField.setStyle("-fx-font-size:11;-fx-font-family: FreeMono2; -fx-font-weight: bold;");    
+    HBox parent = (HBox) sendTextField.getParent();
+    parent.getChildren().remove(sendTextField);
+    HBox.setHgrow(myMaskField, Priority.ALWAYS);
+    myMaskField.prefHeightProperty().bind(inputFormatCombo.heightProperty());
+    myMaskField.setOnKeyPressed((KeyEvent event) -> {
+      keyPressedInputTextfield(event);
+    });
+    myMaskField.setOnAction((ActionEvent event) -> {
+      sendButtonAction(event);
+    });
+    
+    parent.getChildren().add(1, myMaskField);
+    
     inputFormatCombo.getItems().clear();
     inputFormatCombo.getItems().addAll("ASCII", "HEX");
-    inputFormatCombo.getSelectionModel().select(Settings.getValue("InputFormat", "ASCII"));
+    
     inputFormatCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
       Settings.setValue("InputFormat", inputFormatCombo.getSelectionModel().getSelectedItem());
+      myMaskField.clear();
+      if (newValue.equals("ASCII")){
+        myMaskField.setMask("Xc");
+      }
+      else if (newValue.equals("HEX")){
+        myMaskField.setMask("HH c");
+      }
+      myMaskField.requestFocus();
     });
-
+    inputFormatCombo.getSelectionModel().select(Settings.getValue("InputFormat", "ASCII"));
+   
+    
+    
+    
     for (Toggle toggle : (formatToggleGroup.getToggles())) {
       if (((RadioButton) toggle).getText().equals(Settings.getValue("DisplayFormat", "ASCII"))) {
         ((RadioButton) toggle).setSelected(true);
@@ -597,13 +680,58 @@ public class FXMLDocumentController implements Initializable {
     mainTextArea.setAutoScrollOnDragDesired(true);
     mainTextArea.setCache(true);
     
-//    centralpane.getChildren().add(vsp);
-//    AnchorPane.setBottomAnchor(vsp, 0.);
-//    AnchorPane.setLeftAnchor(vsp, 0.);
-//    AnchorPane.setRightAnchor(vsp, 0.);
-//    AnchorPane.setTopAnchor(vsp, 0.);
     mainBorder.setCenter(vsp);
 
+    mainTextArea.setMouseOverTextDelay(Duration.ofMillis(500));
+    
+    
+     Popup popup = new Popup();
+    Label popupMsg = new Label();
+    popupMsg.setStyle(
+            "-fx-background-color: black;"
+            + "-fx-text-fill: white;"
+                    +"-fx-font-size:11;-fx-font-family: Source Code Pro; "
+            + "-fx-padding: 5;");
+    popup.getContent().add(popupMsg);
+    
+    mainTextArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_BEGIN, e -> {
+//      logger.info(mainTextArea.getCaretPosition());
+      String text;
+      SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss:SSS");
+      if (mainTextArea.getSelection().getStart() != mainTextArea.getSelection().getEnd()) {
+        long difference;
+        Date resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getStart()));
+        text = "Start: "+sdf.format(resultdate);
+        difference = resultdate.getTime();
+        resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getEnd()));
+        difference=resultdate.getTime()-difference;
+        text += " \nEnd:   "+sdf.format(resultdate);
+        text +="\nDifference:  "+formatDifference(difference);
+      } else {
+        long difference;
+        Date resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getStart()));
+        text = "Start: "+sdf.format(resultdate);
+        difference = resultdate.getTime();
+        resultdate = new Date(getSelectedTime(e.getCharacterIndex()));
+        difference=resultdate.getTime()-difference;
+        text += " \nEnd:   "+sdf.format(resultdate);
+        text +="\nDifference:  "+formatDifference(difference);
+      }
+
+      Point2D pos = e.getScreenPosition();
+             popupMsg.setText(text);
+             popup.show(mainTextArea, pos.getX(), pos.getY() + 10);
+      
+//      logger.info("Timestamp = " + text);
+    });
+    
+    mainTextArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_END, e -> {
+             popup.hide();
+         });
+    mainTextArea.selectedTextProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Platform.runLater(()->{autoscrollCheck.setSelected(false);});
+    });
+    
     StringConverter<Number> sc = new StringConverter<Number>() {
       @Override
       public String toString(Number i) {
@@ -632,37 +760,24 @@ public class FXMLDocumentController implements Initializable {
 
     Bindings.bindBidirectional(rxCounterField.textProperty(), serial.rxBytesProperty(), sc);
     Bindings.bindBidirectional(txCounterField.textProperty(), serial.txBytesProperty(), sc);
-    logger.info("" + FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMono.ttf"));
+    
 
     Font font = Font.loadFont(FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMono.ttf"), 10);
     logger.info(font.toString());
-    mainTextArea.setStyle("-fx-font-size:11;-fx-font-family: FreeMono2; ");
+    font = Font.loadFont(FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMonoBold.ttf"), 10);
+//    Font font = Font.loadFont(FXMLDocumentController.class.getResourceAsStream("/SourceCodePro_mod-Bold.ttf"), 10);
+    
+    logger.info(font.toString());
+    mainTextArea.setStyle("-fx-font-size:11;-fx-font-family: FreeMono2; -fx-font-weight: bold;-fx-highlight-fill: paleturquoise;");
     mainTextArea.setWrapText(true);
     MyLineNumberFactory mlnf = new MyLineNumberFactory(mainTextArea, digits -> "%1$" + digits + "s");
     mainTextArea.setParagraphGraphicFactory(mlnf);
-
+    mainTextArea.setEditable(false);
+    mainTextArea.showCaretProperty().setValue(Caret.CaretVisibility.ON);
     System.out.println(Arrays.toString(getMonoFontFamilyNames().toArray()));
 
     deviceDiscovery();
 
-//    cmdTreeView.setCellFactory((TreeView<String> p) -> new TextFieldTreeCellImpl());
-//
-//    
-//    
-//    
-//    
-//    rootItem.setExpanded(true);
-//    TreeItem<String> firstItem = new TreeItem<>("Commands");
-//    rootItem.getChildren().add(firstItem);
-//    for (int i = 1; i < 6; i++) {
-//      TreeItem<String> item = new TreeItem<>("Message" + i);
-//      firstItem.getChildren().add(item);
-//    }
-//
-//    cmdTreeView.setRoot(rootItem);
-//    cmdTreeView.setShowRoot(false);
-//    createContextMenu();
-//    cmdTreeView.setContextMenu(addMenu);
             
     serial.lastReadProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
       if (!"".equals(newValue)) {
@@ -788,15 +903,15 @@ public class FXMLDocumentController implements Initializable {
     if (event.getCode() == KeyCode.UP) {
 
       // find current index 
-      int index = historyList.indexOf(sendTextField.getText());
+      int index = historyList.indexOf(myMaskField.getText());
 
       // if index is inside historylist choose correct entry
       if ((index + 1) < historyList.size()) {
 
-        sendTextField.setText(historyList.get(index + 1));
-
+        myMaskField.setText(historyList.get(index + 1));
+myMaskField.setPlainText(historyList.get(index + 1));
         // mark complete textfield
-        sendTextField.selectAll();
+        myMaskField.selectAll();
       }
 
       // consume event so that the standard behaviour is not performed
@@ -804,15 +919,16 @@ public class FXMLDocumentController implements Initializable {
     } else if (event.getCode() == KeyCode.DOWN) {
 
       // find current index 
-      int index = historyList.indexOf(sendTextField.getText());
+      int index = historyList.indexOf(myMaskField.getText());
 
       // if index is inside historylist choose correct entry
       if (index > 0) {
 
-        sendTextField.setText(historyList.get(index - 1));
+        myMaskField.setText(historyList.get(index - 1));
+        myMaskField.setPlainText(historyList.get(index - 1));
 
         // mark complete textfield
-        sendTextField.selectAll();
+        myMaskField.selectAll();
       }
 
       // consume event so that the standard behaviour is not performed
