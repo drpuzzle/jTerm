@@ -14,6 +14,8 @@ import java.util.*;
  * @author Martin
  */
 public class Settings extends Object {
+  
+  public static final String version = "0.12";
 
     private static Settings instance = null;
     private static Properties defaultProperties;
@@ -139,6 +141,11 @@ public class Settings extends Object {
         }
         return rv;
     }
+    
+    public static boolean hasValue(String id){
+      return properties.containsKey(id);
+    }
+    
 
     public static void setValue(String id, String value) {
         getInstance();
@@ -150,6 +157,25 @@ public class Settings extends Object {
         setValue(id, "" + value);
     }
 
+    public static void removeValue(String id){
+      getInstance();
+      if (properties.containsKey(id)){
+        properties.remove(id);
+      }
+    }
+    
+    public static void removeAllValues(String id){
+      getInstance();
+      Iterator<Object> iterators = properties.keySet().iterator();
+       while(iterators.hasNext()) {
+           Object key = iterators.next();
+           if(key.toString().startsWith(id)) {
+               properties.remove(key);
+           }
+       }
+
+    }
+    
     @Override
     public String toString() {
         //String str = null;

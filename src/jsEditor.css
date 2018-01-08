@@ -1,0 +1,42 @@
+
+
+
+
+.keyword {
+    -fx-fill: purple;
+    -fx-font-size: 11;
+    -fx-font-weight: bold;
+}
+.semicolon {
+    -fx-font-weight: bold;
+    -fx-font-size: 11;
+}
+.paren {
+    -fx-fill: firebrick;
+    -fx-font-weight: bold;
+    -fx-font-size: 11;
+}
+.bracket {
+    -fx-fill: darkgreen;
+    -fx-font-weight: bold;
+    -fx-font-size: 11;
+}
+.brace {
+    -fx-fill: teal;
+    -fx-font-weight: bold;
+    -fx-font-size: 11;
+}
+.string {
+    -fx-fill: blue;
+    -fx-font-size: 11;
+}
+
+.comment {
+	-fx-fill: cadetblue;
+    -fx-font-size: 11;
+}
+
+.paragraph-box:has-caret {
+    -fx-background-color: #f2f9fc;
+    -fx-font-size: 11;
+}

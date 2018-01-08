@@ -315,14 +315,14 @@ public class MaskField extends TextField {
     int plainStart = interpretMaskPositionInPlainPosition(start);
     int plainEnd = interpretMaskPositionInPlainPosition(end);
 
-    String plainText1 = "";
+    String plainText1;
     if (getPlainText().length() > plainStart) {
       plainText1 = getPlainText().substring(0, plainStart);
     } else {
       plainText1 = getPlainText();
     }
 
-    String plainText2 = "";
+    String plainText2;
     if (getPlainText().length() > plainEnd) {
       plainText2 = getPlainText().substring(plainEnd);
     } else {

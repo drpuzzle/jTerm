@@ -17,7 +17,7 @@ import javafx.stage.Stage;
  * @author drpuzzle
  */
 public class SerialMonitor extends Application {
-  String Version = "0.11";
+//  String Version = "0.12";
   
   
   @Override
@@ -25,7 +25,7 @@ public class SerialMonitor extends Application {
     Parent root = FXMLLoader.load(getClass().getResource("FXMLDocument.fxml"));
     
     Scene scene = new Scene(root);
-    stage.setTitle("JTerm "+Version);
+    stage.setTitle("JTerm "+Settings.version);
     scene.getStylesheets().add(SerialMonitor.class.getResource("/stylesheet.css").toExternalForm());
     stage.getIcons().add(new Image(getClass()
             .getResourceAsStream("/puzzle_small.png")

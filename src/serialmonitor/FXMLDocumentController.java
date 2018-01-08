@@ -5,6 +5,13 @@
  */
 package serialmonitor;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
@@ -13,20 +20,21 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.function.IntFunction;
+import java.util.logging.Level;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ListProperty;
 import javafx.beans.property.SimpleListProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
-import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -44,25 +52,30 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.SplitPane.Divider;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextFormatter;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.AnchorPane;
 
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontPosture;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Popup;
 import javafx.util.StringConverter;
@@ -88,16 +101,14 @@ public class FXMLDocumentController implements Initializable {
   @FXML
   private Spinner<Integer> msSpinner;
 
-//  @FXML
-//  private TreeView<String> cmdTreeView;
+  @FXML
+  private AnchorPane mainAnchorPane;
 
   @FXML
   private Button connectButton;
-  
+
 //   @FXML
 //    private AnchorPane centralpane;
-   
-
   @FXML
   private ComboBox<String> devicesCombo;
 
@@ -121,6 +132,9 @@ public class FXMLDocumentController implements Initializable {
 
   @FXML
   private Label connectionLabel;
+
+  @FXML
+  private SplitPane mainSplit;
 
   @FXML
   private Label debugLabel;
@@ -158,18 +172,56 @@ public class FXMLDocumentController implements Initializable {
   private ChoiceBox<String> sendOnEnterCombo;
 
   @FXML
-  private Button sendButton;
+  private TreeView<Command> commandsTree;
 
   @FXML
-  private BorderPane mainBorder;
+  private AnchorPane mainAnchor;
+
+  @FXML
+  private Button infobutton;
 
   SerialInterface serial = new SerialInterface();
 
   Timer timer = null;
-   MaskField myMaskField    = new MaskField();
-
-
+  MaskField myMaskField = new MaskField();
+  ScriptEvaluator se = new ScriptEvaluator();
   List<String> historyList = new ArrayList<>();
+  private boolean requestclear = false;
+  private static final int BYTE_READ = 0;
+  private static final int BYTE_WRITE = 1;
+  private static final int BYTE_UNKNOWN = 2;
+  private final ListProperty<DisplayData> dataList = new SimpleListProperty<>(FXCollections.observableArrayList(new ArrayList<>()));
+
+  private int numberOfBatches = 0;
+  private int aktBatch = 0;
+  private boolean isLastCharLF = true;
+  private int lastEntryDirection = BYTE_READ;
+  private long lastTimeStamp = 0;
+  private String debugString = "";
+  private int lastLineMissing = 0;
+  TreeItem<Command> rootItem = new TreeItem<>();
+  private final ContextMenu addMenu = new ContextMenu();
+  Thread myThread;
+
+  public static byte[] hexStringToByteArray(String s) {
+    int len = s.length();
+    byte[] data = new byte[len / 2];
+    for (int i = 0; i < len; i += 2) {
+      data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+              + Character.digit(s.charAt(i + 1), 16));
+    }
+    return data;
+  }
+
+  private byte[] toBytes(String str) {
+    if (inputFormatCombo.getSelectionModel().getSelectedItem().equals("ASCII")) {
+      return str.getBytes(Charset.forName("US-ASCII"));
+    } else if (inputFormatCombo.getSelectionModel().getSelectedItem().equals("HEX")) {
+      return hexStringToByteArray(str);
+    }
+
+    return null;
+  }
 
   @FXML
   void sendButtonAction(ActionEvent event) {
@@ -197,6 +249,10 @@ public class FXMLDocumentController implements Initializable {
         case "CR+LF":
           str += "\r\n";
           break;
+        case "Custom...":
+          se.setScript(Settings.getValue("CustomScript", ScriptEvaluator.defaultScript));
+          str = se.evaluate(toBytes(myMaskField.getPlainText()));
+          break;
         default:
           break;
       }
@@ -208,8 +264,6 @@ public class FXMLDocumentController implements Initializable {
       myMaskField.clear();//setText("");
     }
   }
-
-  private boolean requestclear = false;
 
   @FXML
   void clearButtonAction(ActionEvent event) {
@@ -226,30 +280,6 @@ public class FXMLDocumentController implements Initializable {
     lastLineMissing = msSpinner.getValue();
 //    mainTextArea.setStyleClass(0, 100, "red");
 //      
-  }
-
-  private void setConnectionLabel() {
-    if (serial.isConnected()) {
-      connectionLabel.setText(devicesCombo.getSelectionModel().getSelectedItem()
-              + " ( "
-              + baudRateCombo.getValue()
-              + " / "
-              + dataBitsCombo.getValue()
-              + " / "
-              + stopbitsCombo.getValue()
-              + " / "
-              + parityCombo.getValue()
-              + " )");
-    } else {
-      connectionLabel.setText("");
-    }
-  }
-
-  private void closePort() {
-
-    serial.close();
-    statusLabel.setText("Port closed: " + devicesCombo.getSelectionModel().getSelectedItem());
-    connectButton.setText("Connect");
   }
 
   @FXML
@@ -276,51 +306,406 @@ public class FXMLDocumentController implements Initializable {
     setConnectionLabel();
   }
 
-   public static String[] Split(String text, int chunkSize, int maxLength) { 
-        char[] data = text.toCharArray();       
-        int len = Math.min(data.length,maxLength);
-        String[] result = new String[(len+chunkSize-1)/chunkSize];
-        int linha = 0;
-        for (int i=0; i < len; i+=chunkSize) {
-            result[linha] = new String(data, i, Math.min(chunkSize,len-i));
-            linha++;
-        }
-        return result;
+  @FXML
+  void infoAction(ActionEvent event) {
+    DialogFactory.showInfoDialog();
+  }
+
+  @FXML
+  void keyPressedInputTextfield(KeyEvent event) {
+
+    // on Keycode up and down cycle through historyList
+    if (event.getCode() == KeyCode.UP) {
+
+      // find current index 
+      int index = historyList.indexOf(myMaskField.getText());
+
+      // if index is inside historylist choose correct entry
+      if ((index + 1) < historyList.size()) {
+
+        myMaskField.setText(historyList.get(index + 1));
+        myMaskField.setPlainText(historyList.get(index + 1));
+        // mark complete textfield
+        myMaskField.selectAll();
+      }
+
+      // consume event so that the standard behaviour is not performed
+      event.consume();
+    } else if (event.getCode() == KeyCode.DOWN) {
+
+      // find current index 
+      int index = historyList.indexOf(myMaskField.getText());
+
+      // if index is inside historylist choose correct entry
+      if (index > 0) {
+
+        myMaskField.setText(historyList.get(index - 1));
+        myMaskField.setPlainText(historyList.get(index - 1));
+
+        // mark complete textfield
+        myMaskField.selectAll();
+      }
+
+      // consume event so that the standard behaviour is not performed
+      event.consume();
     }
 
-  
-  private static final int BYTE_READ = 0;
-  private static final int BYTE_WRITE = 1;
-  private static final int BYTE_UNKNOWN = 2;
-  private final ListProperty<DisplayData> dataList = new SimpleListProperty<>(FXCollections.observableArrayList(new ArrayList<>()));
+  }
 
-  private int numberOfBatches = 0;
-  private int aktBatch = 0;
-  private boolean isLastCharLF = true;
-  private int lastEntryDirection = BYTE_READ;
-  private long lastTimeStamp = 0;
-  private String debugString = "";
-  private int lastLineMissing=0;
-  
-  
-  
-  private long getSelectedTime(int selectedCharIndex){
+  @Override
+  public void initialize(URL url, ResourceBundle rb) {
+    // Fill and handle Parity Combobox 
+    parityCombo.getItems().removeAll(baudRateCombo.getItems());
+    parityCombo.getItems().addAll(Arrays.stream(SerialInterface.Parity.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.name())).toArray(String[]::new));
+    parityCombo.getSelectionModel().select(Settings.getValue("Parity", "NONE"));
+    parityCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("Parity", parityCombo.getSelectionModel().getSelectedItem());
+      serial.setParity(SerialInterface.Parity.valueOf(parityCombo.getValue()));
+      setConnectionLabel();
+    });
+
+    // Fill and handle Baudrate Combobox 
+    baudRateCombo.getItems().removeAll(baudRateCombo.getItems());
+    baudRateCombo.getItems().addAll(Arrays.stream(SerialInterface.BaudRate.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
+    baudRateCombo.getSelectionModel().select(Settings.getValue("Baudrate", "115200"));
+    baudRateCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("Baudrate", baudRateCombo.getSelectionModel().getSelectedItem());
+      serial.setBaudRate(Integer.parseInt(baudRateCombo.getValue()));
+      setConnectionLabel();
+    });
+
+    // Fill and handle Databits Combobox 
+    dataBitsCombo.getItems().removeAll(dataBitsCombo.getItems());
+    dataBitsCombo.getItems().addAll(Arrays.stream(SerialInterface.Data.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
+    dataBitsCombo.getSelectionModel().select(Settings.getValue("Databits", "8"));
+    dataBitsCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("Databits", dataBitsCombo.getSelectionModel().getSelectedItem());
+      serial.setDataBits(Integer.parseInt(dataBitsCombo.getValue()));
+      setConnectionLabel();
+    });
+
+    // Fill and handle Stopbits Combobox 
+    stopbitsCombo.getItems().removeAll(stopbitsCombo.getItems());
+    stopbitsCombo.getItems().addAll(Arrays.stream(SerialInterface.Stop.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
+    stopbitsCombo.getSelectionModel().select(Settings.getValue("Stopbits", "1"));
+    stopbitsCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("Stopbits", stopbitsCombo.getSelectionModel().getSelectedItem());
+      serial.setStopBit(Integer.parseInt(stopbitsCombo.getValue()));
+      setConnectionLabel();
+    });
+
+    // Fill and handle millisecond or bytenumber Spinner
+    msSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 1000, Settings.getValue("#ofms", 1), 1));
+    // enable increment decrement scrolling
+    msSpinner.setOnScroll(event -> {
+      if (event.getDeltaY() < 0) {
+        msSpinner.decrement();
+      } else if (event.getDeltaY() > 0) {
+        msSpinner.increment();
+      }
+    });
+    msSpinner.valueProperty().addListener((ObservableValue<? extends Integer> observable, Integer oldValue, Integer newValue) -> {
+      Settings.setValue("#ofms", "" + newValue);
+      requestclear = true;
+    });
+
+    // Fill and handle lineFeedCombo
+    linefeedCombo.getItems().removeAll(linefeedCombo.getItems());
+    linefeedCombo.getItems().addAll("CR", "LF", "CR+LF", "NONE", "ms", "char");
+    linefeedCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      if ((newValue != null) && (!"".equals(newValue))) {
+        Settings.setValue("Linefeed", linefeedCombo.getSelectionModel().getSelectedItem());
+        if (newValue.endsWith("ms") || newValue.endsWith("char")) {
+          Platform.runLater(() -> {
+            msSpinner.setDisable(false);
+          });
+        } else {
+          Platform.runLater(() -> {
+            msSpinner.setDisable(true);
+          });
+        }
+        requestclear = true;
+      }
+
+    });
+    linefeedCombo.getSelectionModel().select(Settings.getValue("Linefeed", "LF"));
+
+    // handle rx tx show enable radio buttons
+    showTXDataRadio.selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
+      requestclear = true;
+    });
+    showRXDataRadio.selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
+      requestclear = true;
+    });
+
+    // Fill and handle behaviour on enter/sendbutton
+    sendOnEnterCombo.getItems().clear();
+    sendOnEnterCombo.getItems().addAll("CR", "LF", "CR+LF", "NONE", "Custom...");
+    sendOnEnterCombo.getSelectionModel().select(Settings.getValue("SendOnEnter", "LF"));
+    // script loaded from properties file
+    se.setScript(Settings.getValue("CustomScript", ScriptEvaluator.defaultScript));
+
+    // handle click event if it is on Custom... Textarea
+    sendOnEnterCombo.setOnMouseClicked((MouseEvent event) -> {
+      if (event.getTarget() instanceof Text) {
+        Text text = (Text) event.getTarget();
+        if (text.getText().equals("Custom...")) {
+          event.consume();
+          se.setScript(DialogFactory.showJavascriptDialog(se.getScript()));
+          Settings.setValue("CustomScript", se.getScript());
+        }
+      }
+    });
+
+    sendOnEnterCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("SendOnEnter", sendOnEnterCombo.getSelectionModel().getSelectedItem());
+      if (newValue.equals("Custom...")) {
+        logger.info("Select custom Value");
+
+        se.setScript(DialogFactory.showJavascriptDialog(se.getScript()));
+        Settings.setValue("CustomScript", se.getScript());
+        // TODO Add dialog box to 
+      }
+    });
+
+    // initialize Maskfield; this is done by removing a textfield from xml initialization 
+    // as i wanted to avoid a special library jar file for Maskfield
+    myMaskField = new MaskField();
+    myMaskField.setStyle("-fx-font-size:11;-fx-font-family: FreeMono2; -fx-font-weight: bold;");
+    HBox parent = (HBox) sendTextField.getParent();
+    parent.getChildren().remove(sendTextField);
+    HBox.setHgrow(myMaskField, Priority.ALWAYS);
+    myMaskField.prefHeightProperty().bind(inputFormatCombo.heightProperty());
+    myMaskField.setOnKeyPressed((KeyEvent event) -> {
+      keyPressedInputTextfield(event);
+    });
+    myMaskField.setOnAction((ActionEvent event) -> {
+      sendButtonAction(event);
+    });
+    parent.getChildren().add(1, myMaskField);
+
+    // Fill and handle inputFormatfield
+    inputFormatCombo.getItems().clear();
+    inputFormatCombo.getItems().addAll("ASCII", "HEX");
+    inputFormatCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("InputFormat", inputFormatCombo.getSelectionModel().getSelectedItem());
+      myMaskField.clear();
+      if (newValue.equals("ASCII")) {
+        myMaskField.setMask("Xc");
+      } else if (newValue.equals("HEX")) {
+        myMaskField.setMask("HH c");
+      }
+      myMaskField.requestFocus();
+    });
+    inputFormatCombo.getSelectionModel().select(Settings.getValue("InputFormat", "ASCII"));
+
+    // handle display format (Hex or Ascii supported)
+    for (Toggle toggle : (formatToggleGroup.getToggles())) {
+      if (((RadioButton) toggle).getText().equals(Settings.getValue("DisplayFormat", "ASCII"))) {
+        ((RadioButton) toggle).setSelected(true);
+      }
+      ((RadioButton) toggle).selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
+        if (newValue) {
+          Settings.setValue("DisplayFormat", ((RadioButton) toggle).getText());
+        }
+      });
+    }
+    formatToggleGroup.selectedToggleProperty().addListener((ObservableValue<? extends Toggle> observable, Toggle oldValue, Toggle newValue) -> {
+      requestclear = true;
+    });
+
+    // mainArea for displaying in and output data
+    mainTextArea = new StyleClassedTextArea();
+    mainTextArea.setUndoManager(null);
+    VirtualizedScrollPane vsp = new VirtualizedScrollPane<>(mainTextArea);
+    mainTextArea.setAutoScrollOnDragDesired(true);
+    mainTextArea.setCache(true);
+    mainAnchor.getChildren().add(vsp);
+    AnchorPane.setBottomAnchor(vsp, 0.);
+    AnchorPane.setTopAnchor(vsp, 0.);
+    AnchorPane.setLeftAnchor(vsp, 0.);
+    AnchorPane.setRightAnchor(vsp, 0.);
+    // enable time measurements between bytes on hover(display timestamp) or selection (display timedifference)
+    mainTextArea.setMouseOverTextDelay(Duration.ofMillis(500));
+    Popup popup = new Popup();
+    Label popupMsg = new Label();
+    popupMsg.setStyle(
+            "-fx-background-color: black;"
+            + "-fx-text-fill: white;"
+            + "-fx-font-size:11;-fx-font-family: Source Code Pro; "
+            + "-fx-padding: 5;");
+    popup.getContent().add(popupMsg);
+    mainTextArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_BEGIN, e -> {
+      String text;
+      SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss:SSS");
+      if (mainTextArea.getSelection().getStart() != mainTextArea.getSelection().getEnd()) {
+        long difference;
+        Date resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getStart()));
+        text = "Start: " + sdf.format(resultdate);
+        difference = resultdate.getTime();
+        resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getEnd()));
+        difference = resultdate.getTime() - difference;
+        text += " \nEnd:   " + sdf.format(resultdate);
+        text += "\nDifference:  " + formatDifference(difference);
+      } else {
+        long difference;
+        Date resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getStart()));
+        text = "Start: " + sdf.format(resultdate);
+        difference = resultdate.getTime();
+        resultdate = new Date(getSelectedTime(e.getCharacterIndex()));
+        difference = resultdate.getTime() - difference;
+        text += " \nEnd:   " + sdf.format(resultdate);
+        text += "\nDifference:  " + formatDifference(difference);
+      }
+
+      Point2D pos = e.getScreenPosition();
+      popupMsg.setText(text);
+      popup.show(mainTextArea, pos.getX(), pos.getY() + 10);
+
+    });
+    mainTextArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_END, e -> {
+      popup.hide();
+    });
+    mainTextArea.selectedTextProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Platform.runLater(() -> {
+        autoscrollCheck.setSelected(false);
+      });
+    });
+    // set monospaced font for mainArea
+    Font font = Font.loadFont(FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMono.ttf"), 10);
+    logger.info(font.toString());
+    font = Font.loadFont(FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMonoBold.ttf"), 10);
+    logger.info(font.toString());
+    mainTextArea.setStyle("-fx-font-size:11;-fx-font-family: FreeMono2; -fx-font-weight: bold;-fx-highlight-fill: paleturquoise;");
+    mainTextArea.setWrapText(true);
+    MyLineNumberFactory mlnf = new MyLineNumberFactory(mainTextArea, digits -> "%1$" + digits + "s");
+    mainTextArea.setParagraphGraphicFactory(mlnf);
+    mainTextArea.setEditable(false);
+    mainTextArea.showCaretProperty().setValue(Caret.CaretVisibility.ON);
+
+    // add listener to devicelist and close Device if disconnected
+    devicesCombo.getItems().addListener((ListChangeListener.Change<? extends String> c) -> {
+      if (serial.isConnected()) {
+        c.next();
+        if (c.getRemoved().contains(serial.device)) {
+          Platform.runLater(() -> {
+            closePort();
+            setConnectionLabel();
+          });
+        }
+      }
+    });
+
+    // display number of received and transmitted bytes
+    Bindings.bindBidirectional(rxCounterField.textProperty(), serial.rxBytesProperty(), sc);
+    Bindings.bindBidirectional(txCounterField.textProperty(), serial.txBytesProperty(), sc);
+
+    // start deviceDiscovery and listeners 
+    deviceDiscovery();
+
+    // add listeners for read and written data and fill datalist
+    serial.lastReadProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      if (!"".equals(newValue)) {
+        dataList.add(numberOfBatches, new DisplayData(numberOfBatches, BYTE_READ, System.currentTimeMillis(), newValue));
+        numberOfBatches++;
+      }
+    });
+    serial.lastWriteProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      if (!"".equals(newValue)) {
+        dataList.add(numberOfBatches, new DisplayData(numberOfBatches, BYTE_WRITE, System.currentTimeMillis(), newValue));
+        numberOfBatches++;
+      }
+    });
+
+    // update timer for UI Update (every 20 ms) to avoid large processor loads
+    timer = new Timer("UI_UpdateTimer", true);
+    timer.schedule(new TimerTask() {
+      @Override
+      public void run() {
+        updateTextField();
+      }
+    }, 0, 20);
+
+    // add info button for Info of app
+    Image image = new Image(FXMLDocumentController.class.getResource("/resources/pics/Mimes_White_info.png").toExternalForm(), 34, 34, true, true);
+    ImageView imageView = new ImageView(image);
+    infobutton.setGraphic(imageView);
+    infobutton.setStyle("-fx-padding: 0 0 0 0;");
+
+    // fill commands treeview 
+    populateTreeView();
+
+    // store and restore window sizes
+    mainAnchorPane.setPrefSize(Settings.getValue("MainPrefWidth", 800.), Settings.getValue("MainPrefHeight", 500.));
+    mainAnchorPane.widthProperty().addListener((ObservableValue<? extends Number> observable, Number oldValue, Number newValue) -> {
+      Settings.setValue("MainPrefWidth", "" + newValue);
+    });
+    mainAnchorPane.heightProperty().addListener((ObservableValue<? extends Number> observable, Number oldValue, Number newValue) -> {
+      Settings.setValue("MainPrefHeight", "" + newValue);
+    });
+    ChangeListener<Number> cl = (ObservableValue<? extends Number> observable, Number oldValue, Number newValue) -> {
+      Settings.setValue("DividerPosition", "" + newValue);
+    };
+    for (Divider d : mainSplit.getDividers()) {
+      d.setPosition(Settings.getValue("DividerPosition", 0.15));
+      d.positionProperty().addListener(cl);
+    }
+
+  }
+
+  private void setConnectionLabel() {
+    if (serial.isConnected()) {
+      connectionLabel.setText(devicesCombo.getSelectionModel().getSelectedItem()
+              + " ( "
+              + baudRateCombo.getValue()
+              + " / "
+              + dataBitsCombo.getValue()
+              + " / "
+              + stopbitsCombo.getValue()
+              + " / "
+              + parityCombo.getValue()
+              + " )");
+    } else {
+      connectionLabel.setText("");
+    }
+  }
+
+  private void closePort() {
+
+    serial.close();
+    statusLabel.setText("Port closed: " + devicesCombo.getSelectionModel().getSelectedItem());
+    connectButton.setText("Connect");
+  }
+
+  public static String[] Split(String text, int chunkSize, int maxLength) {
+    char[] data = text.toCharArray();
+    int len = Math.min(data.length, maxLength);
+    String[] result = new String[(len + chunkSize - 1) / chunkSize];
+    int linha = 0;
+    for (int i = 0; i < len; i += chunkSize) {
+      result[linha] = new String(data, i, Math.min(chunkSize, len - i));
+      linha++;
+    }
+    return result;
+  }
+
+  private long getSelectedTime(int selectedCharIndex) {
     String s = mainTextArea.getText();
     // get number of LF    
     int numberOfLF = s.substring(0, selectedCharIndex).split("\n").length;
-    
+
 //    logger.info("Selected Index: "+selectedCharIndex+", #LF: "+numberOfLF);
-    int currentPos=0;  
-    for (DisplayData dd : dataList.get()){
+    int currentPos = 0;
+    for (DisplayData dd : dataList.get()) {
       currentPos += dd.bytes.length();
-      if (currentPos > (selectedCharIndex-numberOfLF)){
+      if (currentPos > (selectedCharIndex - numberOfLF)) {
         return dd.timestamp;
       }
     }
     return 0;
   }
 
-  // function called every 10 ms
+  // function called every 20 ms
   private void updateTextField() {
     long startTime = System.nanoTime();
     // local variables
@@ -404,36 +789,36 @@ public class FXMLDocumentController implements Initializable {
         // replace TAB with symbol
         newString = newString.replace("\t", "\u2409");
 
-        
         // if newline at LF is selected add newline
         if ("CR+LF".equals(linefeedCombo.getSelectionModel().getSelectedItem())) {
           newString = newString.replace("\u240D\u2424", "\u240D\u2424\n");
         } else if ("LF".equals(linefeedCombo.getSelectionModel().getSelectedItem())) {
           newString = newString.replace("\u2424", "\u2424\n");
         }
-        
+
         // fixed length
-        if ("char".equals(linefeedCombo.getValue())){
+        if ("char".equals(linefeedCombo.getValue())) {
           // store buffer
           String bufferStr = newString;
           // clear newString
           newString = "";
-          while (bufferStr.length() > 0){
+          while (bufferStr.length() > 0) {
             String str;
-            if (bufferStr.length()>= lastLineMissing )
+            if (bufferStr.length() >= lastLineMissing) {
               str = bufferStr.substring(0, lastLineMissing);
-            else 
+            } else {
               str = bufferStr;
+            }
             newString += str;
             lastLineMissing = lastLineMissing - str.length();
             bufferStr = bufferStr.substring(str.length());
-            if (lastLineMissing == 0){
-              newString +="\n";
+            if (lastLineMissing == 0) {
+              newString += "\n";
               lastLineMissing = msSpinner.getValue();
             }
-            
+
           }
-               
+
         }
 
       } else if (((RadioButton) formatToggleGroup.getSelectedToggle()).getText().equals("HEX")) {
@@ -475,13 +860,12 @@ public class FXMLDocumentController implements Initializable {
         if (requestclearCopy) {
           mainTextArea.clear();
         }
-        
+
         int start = mainTextArea.getSelection().getStart();
         int caretPosition = mainTextArea.getCaretPosition();
         // append new string to area
         mainTextArea.appendText(bufferStr);
-        
-        
+
         // do appropriate style 
         if (bufferDirection == BYTE_READ) {
           mainTextArea.setStyleClass(mainTextArea.getText().length() - bufferStr.length(), mainTextArea.getText().length(), "green");
@@ -492,8 +876,7 @@ public class FXMLDocumentController implements Initializable {
         // if autoscroll then last paragraph is alwaiys selected
         if (autoscrollCheck.isSelected()) {
           mainTextArea.showParagraphAtBottom(mainTextArea.getCurrentParagraph());
-        }
-        else{
+        } else {
           mainTextArea.selectRange(start, caretPosition);
         }
 
@@ -515,313 +898,245 @@ public class FXMLDocumentController implements Initializable {
 
   }
 
-  
-  private String formatDifference(long diff){
-    String rv="";
-    
-    if (diff>1000){
-      rv = ""+ (diff/1000)+"."+String.format("%03d",diff%1000)+" s";
-    }
-    else{
-      rv = ""+diff+" ms";
+  private String formatDifference(long diff) {
+    String rv;
+
+    if (diff > 1000) {
+      rv = "" + (diff / 1000) + "." + String.format("%03d", diff % 1000) + " s";
+    } else {
+      rv = "" + diff + " ms";
     }
     return rv;
   }
-  
-  @Override
-  public void initialize(URL url, ResourceBundle rb) { 
-//   logger.info("" + FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMono.ttf"));
-//    logger.info("" + FXMLDocumentController.class.getResourceAsStream("/SourceCodePro-Bold_mod.ttf"));
-    
-    // TODO
-    parityCombo.getItems().removeAll(baudRateCombo.getItems());
-    parityCombo.getItems().addAll(Arrays.stream(SerialInterface.Parity.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.name())).toArray(String[]::new));
-    parityCombo.getSelectionModel().select(Settings.getValue("Parity", "NONE"));
-    parityCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      Settings.setValue("Parity", parityCombo.getSelectionModel().getSelectedItem());
-      serial.setParity(SerialInterface.Parity.valueOf(parityCombo.getValue()));
-      setConnectionLabel();
-    });
 
-    baudRateCombo.getItems().removeAll(baudRateCombo.getItems());
-    baudRateCombo.getItems().addAll(Arrays.stream(SerialInterface.BaudRate.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
-    baudRateCombo.getSelectionModel().select(Settings.getValue("Baudrate", "115200"));
-    baudRateCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      Settings.setValue("Baudrate", baudRateCombo.getSelectionModel().getSelectedItem());
-      serial.setBaudRate(Integer.parseInt(baudRateCombo.getValue()));
-      setConnectionLabel();
-    });
+  private void populateTreeView() {
+    createContextMenu();
+    commandsTree.setContextMenu(addMenu);
+    commandsTree.setRoot(rootItem);
+    commandsTree.setShowRoot(false);
+    commandsTree.setCellFactory((TreeView<Command> p) -> new TextFieldTreeCellImpl());
+    commandsTree.editableProperty().bind(serial.connectedProperty().not());
 
-    dataBitsCombo.getItems().removeAll(dataBitsCombo.getItems());
-    dataBitsCombo.getItems().addAll(Arrays.stream(SerialInterface.Data.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
-    dataBitsCombo.getSelectionModel().select(Settings.getValue("Databits", "8"));
-    dataBitsCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      Settings.setValue("Databits", dataBitsCombo.getSelectionModel().getSelectedItem());
-      serial.setDataBits(Integer.parseInt(dataBitsCombo.getValue()));
-      setConnectionLabel();
-
-    });
-
-    stopbitsCombo.getItems().removeAll(stopbitsCombo.getItems());
-    stopbitsCombo.getItems().addAll(Arrays.stream(SerialInterface.Stop.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
-    stopbitsCombo.getSelectionModel().select(Settings.getValue("Stopbits", "1"));
-    stopbitsCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      Settings.setValue("Stopbits", stopbitsCombo.getSelectionModel().getSelectedItem());
-      serial.setStopBit(Integer.parseInt(stopbitsCombo.getValue()));
-      setConnectionLabel();
-    });
-
-    msSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 1000, Settings.getValue("#ofms", 1), 1));
-    msSpinner.setOnScroll(event -> {
-      if (event.getDeltaY() < 0) {
-        msSpinner.decrement();
-      } else if (event.getDeltaY() > 0) {
-        msSpinner.increment();
-      }
-    });
-    msSpinner.valueProperty().addListener((ObservableValue<? extends Integer> observable, Integer oldValue, Integer newValue) -> {
-      Settings.setValue("#ofms", "" + newValue);
-      requestclear = true;
-    });
-    linefeedCombo.getItems().removeAll(linefeedCombo.getItems());
-    linefeedCombo.getItems().addAll("CR", "LF", "CR+LF", "NONE", "ms", "char");
-    linefeedCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      if ((newValue != null) && (!"".equals(newValue))) {
-        Settings.setValue("Linefeed", linefeedCombo.getSelectionModel().getSelectedItem());
-        if (newValue.endsWith("ms") || newValue.endsWith("char")) {
-          Platform.runLater(() -> {
-            msSpinner.setDisable(false);
-          });
-        } else {
-          Platform.runLater(() -> {
-            msSpinner.setDisable(true);
-          });
-        }
-        requestclear = true;
-      }
-
-    });
-    linefeedCombo.getSelectionModel().select(Settings.getValue("Linefeed", "LF"));
-
-    showTXDataRadio.selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
-      requestclear = true;
-    });
-    showRXDataRadio.selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
-      requestclear = true;
-    });
-
-    sendOnEnterCombo.getItems().clear();
-    sendOnEnterCombo.getItems().addAll("CR", "LF", "CR+LF", "NONE", "Custom...");
-    sendOnEnterCombo.getSelectionModel().select(Settings.getValue("SendOnEnter", "LF"));
-
-    sendOnEnterCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      Settings.setValue("SendOnEnter", sendOnEnterCombo.getSelectionModel().getSelectedItem());
-      if (newValue.equals("Custom...")) {
-        logger.info("Select custom Value");
-        // TODO Add dialog box to 
-      }
-    });
-
-    
-    myMaskField = new MaskField();
-    myMaskField.setStyle("-fx-font-size:11;-fx-font-family: FreeMono2; -fx-font-weight: bold;");    
-    HBox parent = (HBox) sendTextField.getParent();
-    parent.getChildren().remove(sendTextField);
-    HBox.setHgrow(myMaskField, Priority.ALWAYS);
-    myMaskField.prefHeightProperty().bind(inputFormatCombo.heightProperty());
-    myMaskField.setOnKeyPressed((KeyEvent event) -> {
-      keyPressedInputTextfield(event);
-    });
-    myMaskField.setOnAction((ActionEvent event) -> {
-      sendButtonAction(event);
-    });
-    
-    parent.getChildren().add(1, myMaskField);
-    
-    inputFormatCombo.getItems().clear();
-    inputFormatCombo.getItems().addAll("ASCII", "HEX");
-    
-    inputFormatCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      Settings.setValue("InputFormat", inputFormatCombo.getSelectionModel().getSelectedItem());
-      myMaskField.clear();
-      if (newValue.equals("ASCII")){
-        myMaskField.setMask("Xc");
-      }
-      else if (newValue.equals("HEX")){
-        myMaskField.setMask("HH c");
-      }
-      myMaskField.requestFocus();
-    });
-    inputFormatCombo.getSelectionModel().select(Settings.getValue("InputFormat", "ASCII"));
-   
-    
-    
-    
-    for (Toggle toggle : (formatToggleGroup.getToggles())) {
-      if (((RadioButton) toggle).getText().equals(Settings.getValue("DisplayFormat", "ASCII"))) {
-        ((RadioButton) toggle).setSelected(true);
-      }
-      ((RadioButton) toggle).selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
-        if (newValue) {
-//          logger.info("Selected: " + ((RadioButton) toggle).getText());
-          Settings.setValue("DisplayFormat", ((RadioButton) toggle).getText());
-        }
-      });
-    }
-
-    formatToggleGroup.selectedToggleProperty().addListener((ObservableValue<? extends Toggle> observable, Toggle oldValue, Toggle newValue) -> {
-      requestclear = true;
-    });
-
-    mainTextArea = new StyleClassedTextArea();
-    mainTextArea.setUndoManager(null);
-//    scrollArea.setContent(mainTextArea);
-    VirtualizedScrollPane vsp = new VirtualizedScrollPane<>(mainTextArea);
-    mainTextArea.setAutoScrollOnDragDesired(true);
-    mainTextArea.setCache(true);
-    
-    mainBorder.setCenter(vsp);
-
-    mainTextArea.setMouseOverTextDelay(Duration.ofMillis(500));
-    
-    
-     Popup popup = new Popup();
-    Label popupMsg = new Label();
-    popupMsg.setStyle(
-            "-fx-background-color: black;"
-            + "-fx-text-fill: white;"
-                    +"-fx-font-size:11;-fx-font-family: Source Code Pro; "
-            + "-fx-padding: 5;");
-    popup.getContent().add(popupMsg);
-    
-    mainTextArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_BEGIN, e -> {
-//      logger.info(mainTextArea.getCaretPosition());
-      String text;
-      SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss:SSS");
-      if (mainTextArea.getSelection().getStart() != mainTextArea.getSelection().getEnd()) {
-        long difference;
-        Date resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getStart()));
-        text = "Start: "+sdf.format(resultdate);
-        difference = resultdate.getTime();
-        resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getEnd()));
-        difference=resultdate.getTime()-difference;
-        text += " \nEnd:   "+sdf.format(resultdate);
-        text +="\nDifference:  "+formatDifference(difference);
-      } else {
-        long difference;
-        Date resultdate = new Date(getSelectedTime(mainTextArea.getSelection().getStart()));
-        text = "Start: "+sdf.format(resultdate);
-        difference = resultdate.getTime();
-        resultdate = new Date(getSelectedTime(e.getCharacterIndex()));
-        difference=resultdate.getTime()-difference;
-        text += " \nEnd:   "+sdf.format(resultdate);
-        text +="\nDifference:  "+formatDifference(difference);
-      }
-
-      Point2D pos = e.getScreenPosition();
-             popupMsg.setText(text);
-             popup.show(mainTextArea, pos.getX(), pos.getY() + 10);
-      
-//      logger.info("Timestamp = " + text);
-    });
-    
-    mainTextArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_END, e -> {
-             popup.hide();
-         });
-    mainTextArea.selectedTextProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      Platform.runLater(()->{autoscrollCheck.setSelected(false);});
-    });
-    
-    StringConverter<Number> sc = new StringConverter<Number>() {
-      @Override
-      public String toString(Number i) {
-        return "" + i;
-      }
-
-      @Override
-      public Number fromString(String s) {
-
-        return Integer.parseInt(s);
-
-      }
+    EventHandler<MouseEvent> mouseEventHandle = (MouseEvent event) -> {
+      handleMouseClicked(event);
     };
 
-    devicesCombo.getItems().addListener((ListChangeListener.Change<? extends String> c) -> {
-      if (serial.isConnected()) {
-        c.next();
-        if (c.getRemoved().contains(serial.device)) {
-          Platform.runLater(() -> {
-            closePort();
-            setConnectionLabel();
-          });
+    commandsTree.addEventHandler(MouseEvent.MOUSE_CLICKED, mouseEventHandle);
+    readTreeviewSettings();
+  }
+
+  private void handleMouseClicked(MouseEvent event) {
+    if ((serial.isConnected()) && (event.getClickCount() == 2) && (event.getButton().equals(MouseButton.PRIMARY))) {
+      Node node = event.getPickResult().getIntersectedNode();
+      // Accept clicks only on node cells, and not on empty spaces of the TreeView
+      if (node instanceof Text || (node instanceof TreeCell && ((TreeCell) node).getText() != null)) {
+        Command c = ((TreeItem<Command>) commandsTree.getSelectionModel().getSelectedItem()).getValue();
+
+        // send command
+        // textfieldentry
+        String str = c.getValue();
+
+        //append character selected in onEnterCombo
+        switch (c.getLinefeed()) {
+          case "LF":
+            str += "\n";
+            break;
+          case "CR":
+            str += "\r";
+            break;
+          case "CR+LF":
+            str += "\r\n";
+            break;
+          case "Custom...":
+            se.setScript(c.getScript());
+            str = se.evaluate(toBytes(c.getValue()));
+            break;
+          default:
+            break;
         }
+
+        // send character
+        serial.write(str);
       }
-    });
+    }
+  }
 
-    Bindings.bindBidirectional(rxCounterField.textProperty(), serial.rxBytesProperty(), sc);
-    Bindings.bindBidirectional(txCounterField.textProperty(), serial.txBytesProperty(), sc);
-    
+  private void readTreeviewSettings() {
 
-    Font font = Font.loadFont(FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMono.ttf"), 10);
-    logger.info(font.toString());
-    font = Font.loadFont(FXMLDocumentController.class.getResourceAsStream("/ModifiedFreeMonoBold.ttf"), 10);
-//    Font font = Font.loadFont(FXMLDocumentController.class.getResourceAsStream("/SourceCodePro_mod-Bold.ttf"), 10);
-    
-    logger.info(font.toString());
-    mainTextArea.setStyle("-fx-font-size:11;-fx-font-family: FreeMono2; -fx-font-weight: bold;-fx-highlight-fill: paleturquoise;");
-    mainTextArea.setWrapText(true);
-    MyLineNumberFactory mlnf = new MyLineNumberFactory(mainTextArea, digits -> "%1$" + digits + "s");
-    mainTextArea.setParagraphGraphicFactory(mlnf);
-    mainTextArea.setEditable(false);
-    mainTextArea.showCaretProperty().setValue(Caret.CaretVisibility.ON);
-    System.out.println(Arrays.toString(getMonoFontFamilyNames().toArray()));
+    int i = 0, j = 0;
+    do {
+      if (Settings.hasValue("TreeviewItemBase" + i)) {
+        Command c = new Command();
+        c.setName(Settings.getValue("TreeviewItemBase" + i, ""));
 
-    deviceDiscovery();
+        TreeItem<Command> newItem = new TreeItem<>(c);
+        newItem.setExpanded(true);
+        rootItem.getChildren().add(newItem);
 
-            
-    serial.lastReadProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      if (!"".equals(newValue)) {
-        dataList.add(numberOfBatches, new DisplayData(numberOfBatches, BYTE_READ, System.currentTimeMillis(), newValue));
-        numberOfBatches++;
+        do {
+          if (Settings.hasValue("TreeviewItemChild" + i + "_" + j + ".Name")) {
+            Command cChild = new Command();
+            cChild.setName(Settings.getValue("TreeviewItemChild" + i + "_" + j + ".Name", ""));
+            cChild.setLinefeed(Settings.getValue("TreeviewItemChild" + i + "_" + j + ".Linefeed", ""));
+            cChild.setScript(Settings.getValue("TreeviewItemChild" + i + "_" + j + ".Script", ""));
+            cChild.setValue(Settings.getValue("TreeviewItemChild" + i + "_" + j + ".Value", ""));
+
+            TreeItem<Command> newChildItem = new TreeItem<>(cChild);
+            newItem.getChildren().add(newChildItem);
+
+          } else {
+            break;
+          }
+
+          j++;
+        } while (true);
+
+      } else {
+        break;
       }
-    });
-    serial.lastWriteProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
-      if (!"".equals(newValue)) {
-        dataList.add(numberOfBatches, new DisplayData(numberOfBatches, BYTE_WRITE, System.currentTimeMillis(), newValue));
-        numberOfBatches++;
-      }
-    });
-
-    timer = new Timer("UI_UpdateTimer", true);
-
-    timer.schedule(new TimerTask() {
-      @Override
-      public void run() {
-        updateTextField();
-      }
-    }, 0, 20);
+      i++;
+      j = 0;
+    } while (true);
 
   }
-  
-  TreeItem<String> rootItem = new TreeItem<>("Commands");
-  private final ContextMenu addMenu = new ContextMenu();
+
+  private void createContextMenu() {
+    addMenu.getItems().clear();
+
+    MenuItem addMenuItem = new MenuItem("Add new List");
+    addMenuItem.setOnAction((ActionEvent t) -> {
+      Command c = new Command();
+      c.setName("New List");
+      TreeItem<Command> newItem = new TreeItem<>(c);
+      newItem.setExpanded(true);
+      rootItem.getChildren().add(newItem);
+      treeViewModified();
+    });
+
+    MenuItem exportMenuItem = new MenuItem("Export Complete List");
+    exportMenuItem.setOnAction((ActionEvent t) -> {
+      logger.info("Export complete List");
+      exportList();
+    });
+
+    MenuItem importMenuItem = new MenuItem("Import List");
+    importMenuItem.setOnAction((ActionEvent t) -> {
+      logger.info("Import List");
+      importList();
+    });
+
+    addMenu.getItems().addAll(addMenuItem, exportMenuItem, importMenuItem);
+  }
+
+  private void exportList() {
+    exportList(null);
+  }
+
+  private void exportList(String section) {
+    String filename = DialogFactory.getFilenname(mainAnchor.getScene().getWindow());
+    if ((filename == null) || ("".equals(filename))) {
+      return;
+    }
+    Properties p = new Properties();
+
+    int i = 0, j = 0;
+    for (TreeItem<Command> child : rootItem.getChildren()) {
+      if (section != null) {
+        if (!child.getValue().getName().equals(section)) {
+          continue;
+        }
+      }
+      p.setProperty("TreeviewItemBase" + i, child.getValue().getName());
+      for (TreeItem<Command> grandchild : child.getChildren()) {
+        p.setProperty("TreeviewItemChild" + i + "_" + j + ".Name", grandchild.getValue().getName());
+        p.setProperty("TreeviewItemChild" + i + "_" + j + ".Value", grandchild.getValue().getValue());
+        p.setProperty("TreeviewItemChild" + i + "_" + j + ".Script", grandchild.getValue().getScript());
+        p.setProperty("TreeviewItemChild" + i + "_" + j + ".Linefeed", grandchild.getValue().getLinefeed());
+        j++;
+      }
+      j = 0;
+      i++;
+    }
+    try {
+      p.store(new FileOutputStream(filename), "");
+    } catch (FileNotFoundException ex) {
+      logger.error(ex.getMessage());
+    } catch (IOException ex) {
+      logger.error(ex.getMessage());
+    }
+
+  }
+
+  private void importList() {
+    String filename = DialogFactory.getFilenname(mainAnchor.getScene().getWindow());
+    if ((filename == null) || ("".equals(filename))) {
+      return;
+    }
+
+    Properties p = new Properties();
+    try {
+      p.load(new BufferedReader(new FileReader(filename)));
+    } catch (FileNotFoundException ex) {
+      logger.error(ex.getMessage());
+    } catch (IOException ex) {
+      logger.error(ex.getMessage());
+    }
+
+
+     int i = 0, j = 0;
+    do {
+      if (Settings.hasValue("TreeviewItemBase" + i)) {
+        Command c = new Command();
+        c.setName(p.getProperty("TreeviewItemBase" + i));
+
+        TreeItem<Command> newItem = new TreeItem<>(c);
+        newItem.setExpanded(true);
+        rootItem.getChildren().add(newItem);
+
+        do {
+          if (p.getProperty("TreeviewItemChild" + i + "_" + j + ".Name")!=null) {
+            Command cChild = new Command();
+            cChild.setName(p.getProperty("TreeviewItemChild" + i + "_" + j + ".Name", ""));
+            cChild.setLinefeed(p.getProperty("TreeviewItemChild" + i + "_" + j + ".Linefeed", ""));
+            cChild.setScript(p.getProperty("TreeviewItemChild" + i + "_" + j + ".Script", ""));
+            cChild.setValue(p.getProperty("TreeviewItemChild" + i + "_" + j + ".Value", ""));
+
+            TreeItem<Command> newChildItem = new TreeItem<>(cChild);
+            newItem.getChildren().add(newChildItem);
+
+          } else {
+            break;
+          }
+
+          j++;
+        } while (true);
+
+      } else {
+        break;
+      }
+      i++;
+      j = 0;
+    } while (true);
 
     
-    private void createContextMenu(){
-      MenuItem addMenuItem = new MenuItem("Add List");
-      addMenu.getItems().clear();
-      addMenu.getItems().add(addMenuItem);
-      addMenuItem.setOnAction(new EventHandler() {
-        @Override
-        public void handle(Event t) {
-          TreeItem newItem
-                  = new TreeItem<>("New List" );
-          rootItem.getChildren().add(newItem);
-        }
-      });
-      
+  }
+
+  private void treeViewModified() {
+    Settings.removeAllValues("TreeviewItem");
+    int i = 0, j = 0;
+    for (TreeItem<Command> child : rootItem.getChildren()) {
+      Settings.setValue("TreeviewItemBase" + i, child.getValue().getName());
+      for (TreeItem<Command> grandchild : child.getChildren()) {
+        Settings.setValue("TreeviewItemChild" + i + "_" + j + ".Name", grandchild.getValue().getName());
+        Settings.setValue("TreeviewItemChild" + i + "_" + j + ".Value", grandchild.getValue().getValue());
+        Settings.setValue("TreeviewItemChild" + i + "_" + j + ".Script", grandchild.getValue().getScript());
+        Settings.setValue("TreeviewItemChild" + i + "_" + j + ".Linefeed", grandchild.getValue().getLinefeed());
+        j++;
+      }
+      j = 0;
+      i++;
     }
-  
+  }
 
   public void deviceDiscovery() {
     // Indicate Start Discovery
@@ -868,73 +1183,6 @@ public class FXMLDocumentController implements Initializable {
         }
       });
     }
-  }
-  Thread myThread;
-
-  private ObservableList<String> getMonoFontFamilyNames() {
-
-    // Compare the layout widths of two strings. One string is composed
-    // of "thin" characters, the other of "wide" characters. In mono-spaced
-    // fonts the widths should be the same.
-    final Text thinTxt = new Text("1 labcdefgm"); // note the space
-    final Text thikTxt = new Text("MWXABCDEFGX");
-
-    List<String> fontFamilyList = Font.getFamilies();
-    List<String> monoFamilyList = new ArrayList<>();
-
-    Font font;
-
-    for (String fontFamilyName : fontFamilyList) {
-      font = Font.font(fontFamilyName, FontWeight.NORMAL, FontPosture.REGULAR, 14.0d);
-      thinTxt.setFont(font);
-      thikTxt.setFont(font);
-      if (thinTxt.getLayoutBounds().getWidth() == thikTxt.getLayoutBounds().getWidth()) {
-        monoFamilyList.add(fontFamilyName);
-      }
-    }
-
-    return FXCollections.observableArrayList(monoFamilyList);
-  }
-
-  @FXML
-  void keyPressedInputTextfield(KeyEvent event) {
-
-    // on Keycode up and down cycle through historyList
-    if (event.getCode() == KeyCode.UP) {
-
-      // find current index 
-      int index = historyList.indexOf(myMaskField.getText());
-
-      // if index is inside historylist choose correct entry
-      if ((index + 1) < historyList.size()) {
-
-        myMaskField.setText(historyList.get(index + 1));
-myMaskField.setPlainText(historyList.get(index + 1));
-        // mark complete textfield
-        myMaskField.selectAll();
-      }
-
-      // consume event so that the standard behaviour is not performed
-      event.consume();
-    } else if (event.getCode() == KeyCode.DOWN) {
-
-      // find current index 
-      int index = historyList.indexOf(myMaskField.getText());
-
-      // if index is inside historylist choose correct entry
-      if (index > 0) {
-
-        myMaskField.setText(historyList.get(index - 1));
-        myMaskField.setPlainText(historyList.get(index - 1));
-
-        // mark complete textfield
-        myMaskField.selectAll();
-      }
-
-      // consume event so that the standard behaviour is not performed
-      event.consume();
-    }
-
   }
 
   public class MyLineNumberFactory implements IntFunction<Node> {
@@ -1005,37 +1253,68 @@ myMaskField.setPlainText(historyList.get(index + 1));
     }
   }
 
-  private final class TextFieldTreeCellImpl extends TreeCell<String> {
+  private final class TextFieldTreeCellImpl extends TreeCell<Command> {
 
     private TextField textField;
 
     private final ContextMenu addMenu = new ContextMenu();
 
-    
-    private void createContextMenu(String str, boolean doParent){
-      MenuItem addMenuItem = new MenuItem("Add "+str);
+    private void createContextMenu(String str, boolean doParent) {
+
       addMenu.getItems().clear();
-      addMenu.getItems().add(addMenuItem);
-      addMenuItem.setOnAction(new EventHandler() {
-        @Override
-        public void handle(Event t) {
-          TreeItem newItem
-                  = new TreeItem<>("New " + str);
-          if (doParent) {
-            if (getTreeItem() != null) {
-              getTreeItem().getParent().getChildren().add(newItem);
-            }
-          } else {
-            getTreeItem().getChildren().add(newItem);
-          }
+
+      MenuItem addMenuItem = new MenuItem("Add " + str);
+      addMenuItem.setOnAction((ActionEvent t) -> {
+        Command c = new Command();
+        c.setName("New " + str);
+        TreeItem<Command> newItem = new TreeItem<>(c);
+        getTreeItem().getChildren().add(newItem);
+        treeViewModified();
+      });
+
+      MenuItem removeMenuItem = new MenuItem("Remove");
+      removeMenuItem.setOnAction((ActionEvent t) -> {
+        logger.info("Remove " + getString());
+        getTreeItem().getParent().getChildren().remove(getTreeItem());
+        treeViewModified();
+      });
+
+      MenuItem exportMenuItem = new MenuItem("Export List");
+      exportMenuItem.setOnAction((ActionEvent t) -> {
+        logger.info("Export List");
+        exportList(getItem().getName());
+      });
+
+      addMenu.getItems().addAll(addMenuItem, removeMenuItem, exportMenuItem);
+
+    }
+
+    private void createRemoveEditContextMenu() {
+
+      addMenu.getItems().clear();
+
+      MenuItem addMenuItem = new MenuItem("Edit");
+      addMenuItem.setOnAction((ActionEvent t) -> {
+        logger.info("Edit " + getString());
+        DialogFactory.commandEditDialog(getItem());
+        setText(getItem().getName());
+        treeViewModified();
+      });
+      MenuItem removeMenuItem = new MenuItem("Remove");
+      removeMenuItem.setOnAction((ActionEvent t) -> {
+        if (DialogFactory.requestConfimation()) {
+          logger.info("Remove " + getString());
+          getTreeItem().getParent().getChildren().remove(getTreeItem());
+          treeViewModified();
         }
       });
-      
+
+      addMenu.getItems().addAll(addMenuItem, removeMenuItem);
+
     }
-    
-    
+
     public TextFieldTreeCellImpl() {
-      
+
     }
 
     @Override
@@ -1053,14 +1332,15 @@ myMaskField.setPlainText(historyList.get(index + 1));
     @Override
     public void cancelEdit() {
       super.cancelEdit();
-      setText((String) getItem());
+      setText((String) getItem().getName());
       setGraphic(getTreeItem().getGraphic());
+      textField = null;
     }
 
     @Override
-    public void updateItem(String item, boolean empty) {
+    public void updateItem(Command item, boolean empty) {
       super.updateItem(item, empty);
-
+      treeViewModified();
       if (empty) {
         setText(null);
         setGraphic(null);
@@ -1074,31 +1354,57 @@ myMaskField.setPlainText(historyList.get(index + 1));
         } else {
           setText(getString());
           setGraphic(getTreeItem().getGraphic());
-          if ( (getTreeItem().isLeaf() && getTreeItem().getParent().getParent()!=null) ) {
+          textField = null;
+          if (getTreeItem().getParent().equals(rootItem)) {
             createContextMenu("Command", true);
-            setContextMenu(addMenu);
-          } else if (!getTreeItem().isLeaf() ) {
-            createContextMenu("Command", false);
-            setContextMenu(addMenu);
+          } else {
+            createRemoveEditContextMenu();
+//            addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED, Event::consume);
+
           }
+          setContextMenu(addMenu);
         }
       }
     }
 
     private void createTextField() {
       textField = new TextField(getString());
+      textField.selectAll();
+      Platform.runLater(() -> {
+        textField.requestFocus();
+      });
       textField.setOnKeyReleased((KeyEvent t) -> {
         if (t.getCode() == KeyCode.ENTER) {
-          commitEdit(textField.getText());
+          getItem().setName(textField.getText());
+          commitEdit(getItem());
         } else if (t.getCode() == KeyCode.ESCAPE) {
+          cancelEdit();
+        }
+      });
+      textField.focusedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
+        // if focus lost
+        logger.info("Hier bin cih " + newValue);
+        if (!newValue) {
           cancelEdit();
         }
       });
     }
 
     private String getString() {
-      return getItem() == null ? "" : getItem();
+      return getItem() == null ? "" : getItem().getName();
     }
   }
+
+  StringConverter<Number> sc = new StringConverter<Number>() {
+    @Override
+    public String toString(Number i) {
+      return "" + i;
+    }
+
+    @Override
+    public Number fromString(String s) {
+      return Integer.parseInt(s);
+    }
+  };
 
 }

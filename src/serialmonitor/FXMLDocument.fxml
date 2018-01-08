@@ -8,9 +8,11 @@
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.Spinner?>
+<?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.ToggleGroup?>
 <?import javafx.scene.control.ToolBar?>
+<?import javafx.scene.control.TreeView?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
@@ -18,48 +20,9 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane id="AnchorPane" prefHeight="482.0" prefWidth="753.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="serialmonitor.FXMLDocumentController">
+<AnchorPane id="AnchorPane" fx:id="mainAnchorPane" prefHeight="482.0" prefWidth="753.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="serialmonitor.FXMLDocumentController">
   <children>
       <BorderPane prefHeight="557.0" prefWidth="907.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
-         <top>
-            <VBox BorderPane.alignment="CENTER">
-               <children>
-                  <ToolBar prefHeight="28.0" prefWidth="321.0">
-                    <items>
-                      <Button fx:id="connectButton" mnemonicParsing="false" onAction="#connectButtonAction" prefWidth="94.0" text="Connect">
-                           <font>
-                              <Font size="11.0" />
-                           </font></Button>
-                        <Label text="Port">
-                           <font>
-                              <Font size="11.0" />
-                           </font></Label>
-                        <ComboBox fx:id="devicesCombo" editable="true" prefHeight="26.0" prefWidth="132.0" />
-                        <Label text="Baud">
-                           <font>
-                              <Font size="11.0" />
-                           </font></Label>
-                        <ComboBox fx:id="baudRateCombo" editable="true" prefHeight="26.0" prefWidth="89.0" promptText="115200" style="-fx-font-size: 11;" />
-                        <Label text="Data">
-                           <font>
-                              <Font size="11.0" />
-                           </font></Label>
-                        <ComboBox fx:id="dataBitsCombo" prefHeight="26.0" prefWidth="30.0" promptText="8" style="-fx-font-size: 11;" />
-                        <Label text="Stop">
-                           <font>
-                              <Font size="11.0" />
-                           </font></Label>
-                        <ComboBox fx:id="stopbitsCombo" prefHeight="26.0" prefWidth="30.0" promptText="1" style="-fx-font-size: 11;" />
-                        <Label text="Parity">
-                           <font>
-                              <Font size="11.0" />
-                           </font></Label>
-                        <ComboBox fx:id="parityCombo" prefHeight="26.0" prefWidth="78.0" promptText="None" style="-fx-font-size: 11;" />
-                    </items>
-                  </ToolBar>
-               </children>
-            </VBox>
-         </top>
          <bottom>
             <HBox prefHeight="15.0" prefWidth="907.0" BorderPane.alignment="CENTER">
                <children>
@@ -98,7 +61,7 @@
                            </font>
                         </Label>
                         <Spinner fx:id="msSpinner" editable="true" nodeOrientation="LEFT_TO_RIGHT" prefHeight="26.0" prefWidth="60.0" style="-fx-font-size: 11; -fx-padding: 0;" />
-                        <ComboBox fx:id="linefeedCombo" prefHeight="26.0" prefWidth="83.0" />
+                        <ComboBox fx:id="linefeedCombo" prefHeight="26.0" prefWidth="83.0" style="-fx-font-size: 11;" />
                         <Separator orientation="VERTICAL" prefHeight="18.0" prefWidth="13.0" />
                         <VBox prefHeight="0.0" prefWidth="100.0">
                            <children>
@@ -203,8 +166,66 @@
                      </children>
                   </HBox>
                </bottom>
+               <center>
+                  <SplitPane fx:id="mainSplit" dividerPositions="0.1744340878828229" prefHeight="160.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+                    <items>
+                      <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="160.0" prefWidth="100.0">
+                           <children>
+                              <TreeView fx:id="commandsTree" layoutX="32.0" layoutY="101.0" prefHeight="200.0" prefWidth="200.0" style="-fx-font-size: 11;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                           </children>
+                        </AnchorPane>
+                      <AnchorPane fx:id="mainAnchor" minHeight="0.0" minWidth="0.0" prefHeight="160.0" prefWidth="100.0" />
+                    </items>
+                  </SplitPane>
+               </center>
             </BorderPane>
          </center>
+         <top>
+            <HBox BorderPane.alignment="CENTER">
+               <children>
+                  <ToolBar prefHeight="28.0" HBox.hgrow="ALWAYS">
+                    <items>
+                      <Button fx:id="connectButton" mnemonicParsing="false" onAction="#connectButtonAction" prefWidth="94.0" text="Connect">
+                           <font>
+                              <Font size="11.0" />
+                           </font>
+                        </Button>
+                        <Label prefHeight="14.0" prefWidth="28.0" text="Port">
+                           <font>
+                              <Font size="11.0" />
+                           </font>
+                        </Label>
+                        <ComboBox fx:id="devicesCombo" editable="true" prefHeight="26.0" prefWidth="132.0" style="-fx-font-size: 11;" />
+                        <Label prefHeight="14.0" prefWidth="37.0" text="Baud">
+                           <font>
+                              <Font size="11.0" />
+                           </font>
+                        </Label>
+                        <ComboBox fx:id="baudRateCombo" editable="true" prefHeight="26.0" prefWidth="89.0" promptText="115200" style="-fx-font-size: 11;" />
+                        <Label prefHeight="14.0" prefWidth="31.0" text="Data">
+                           <font>
+                              <Font size="11.0" />
+                           </font>
+                        </Label>
+                        <ComboBox fx:id="dataBitsCombo" prefHeight="26.0" prefWidth="30.0" promptText="8" style="-fx-font-size: 11;" />
+                        <Label prefHeight="14.0" prefWidth="35.0" text="Stop">
+                           <font>
+                              <Font size="11.0" />
+                           </font>
+                        </Label>
+                        <ComboBox fx:id="stopbitsCombo" prefHeight="26.0" prefWidth="30.0" promptText="1" style="-fx-font-size: 11;" />
+                        <Label prefHeight="14.0" prefWidth="38.0" text="Parity">
+                           <font>
+                              <Font size="11.0" />
+                           </font>
+                        </Label>
+                        <ComboBox fx:id="parityCombo" prefHeight="26.0" prefWidth="78.0" promptText="None" style="-fx-font-size: 11;" />
+                    </items>
+                  </ToolBar>
+                  <Button fx:id="infobutton" mnemonicParsing="false" onAction="#infoAction" prefHeight="37.0" prefWidth="37.0" />
+               </children>
+            </HBox>
+         </top>
       </BorderPane>
   </children>
 </AnchorPane>
