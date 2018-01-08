@@ -3,10 +3,10 @@
 Java Serial Terminal V 0.12
 
 
-Working both Linux (Mint 18.2) and Windows (Windows 10) with java version "1.8.0_151". 
+Working both Linux (Mint 18.2) and Windows (Windows 10) with java version "1.8.0_151". This terminal program is inspired from hterm <http://www.der-hammer.info/terminal/index.html> (great program but closed source)
 
 ### features
-- continous scan of available Serial Ports to update list of Ports.
+- continuous scan of available Serial Ports to update list of Ports.
 - clean and small GUI overhead
 - ASCII and HEX view of transmitted and received data
 - ASCII and HEX input for transmission
