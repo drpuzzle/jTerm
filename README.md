@@ -31,7 +31,7 @@ Working both Linux (Mint 18.2) and Windows (Windows 10) with actual java version
   - window size stored and restored in properties file
 - 0.13
   - handle 2 serial ports 
-  - show device information as tooltip (work only on linux)
+  - show device information (udev information) as tooltip (works only on linux)
   - bugfix in maskfield when editing 
 
 
