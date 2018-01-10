@@ -10,12 +10,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -25,7 +26,6 @@ import java.util.ResourceBundle;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.function.IntFunction;
-import java.util.logging.Level;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ListProperty;
@@ -44,10 +44,12 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.Spinner;
@@ -57,6 +59,7 @@ import javafx.scene.control.SplitPane.Divider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
@@ -70,14 +73,17 @@ import javafx.scene.layout.AnchorPane;
 
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontPosture;
 import javafx.scene.text.Text;
 import javafx.stage.Popup;
+import javafx.util.Duration;
 import javafx.util.StringConverter;
 import org.apache.log4j.Logger;
 import org.fxmisc.flowless.VirtualizedScrollPane;
@@ -99,21 +105,87 @@ public class FXMLDocumentController implements Initializable {
   Logger logger = Logger.getLogger(FXMLDocumentController.class);
 
   @FXML
+  private AnchorPane mainAnchorPane;
+
+  @FXML
+  private Label statusLabel;
+
+  @FXML
+  private Label debugLabel;
+
+  @FXML
+  private Label connectionLabel;
+
+  @FXML
+  private BorderPane mainBorder;
+
+  @FXML
+  private Button clearButton;
+
+  @FXML
   private Spinner<Integer> msSpinner;
 
   @FXML
-  private AnchorPane mainAnchorPane;
+  private ComboBox<String> linefeedCombo;
+
+  @FXML
+  private CheckBox autoscrollCheck;
+
+  @FXML
+  private ToggleGroup formatToggleGroup;
+
+  @FXML
+  private RadioButton showTXDataRadio;
+
+  @FXML
+  private RadioButton showRXDataRadio;
+
+  @FXML
+  private VBox portBox1;
+
+  @FXML
+  private RadioButton showPort1Radio;
+
+  @FXML
+  private RadioButton showPort2Radio;
+
+  @FXML
+  private ChoiceBox<String> inputFormatCombo;
+
+  @FXML
+  private TextField sendTextField;
+
+  @FXML
+  private ChoiceBox<String> sendOnEnterCombo;
+
+  @FXML
+  private Button sendButton;
+  @FXML
+  private VBox portBox;
+
+  @FXML
+  private RadioButton port1Radio;
+
+  @FXML
+  private ToggleGroup portToggleGroup;
+
+  @FXML
+  private RadioButton port2Radio;
+
+  @FXML
+  private SplitPane mainSplit;
+
+  @FXML
+  private TreeView<Command> commandsTree;
+
+  @FXML
+  private AnchorPane mainAnchor;
 
   @FXML
   private Button connectButton;
 
-//   @FXML
-//    private AnchorPane centralpane;
   @FXML
   private ComboBox<String> devicesCombo;
-
-  @FXML
-  private CheckBox autoscrollCheck;
 
   @FXML
   private ComboBox<String> baudRateCombo;
@@ -128,59 +200,51 @@ public class FXMLDocumentController implements Initializable {
   private ComboBox<String> parityCombo;
 
   @FXML
-  private Label statusLabel;
-
-  @FXML
-  private Label connectionLabel;
-
-  @FXML
-  private SplitPane mainSplit;
-
-  @FXML
-  private Label debugLabel;
-
-  @FXML
-  private Button clearButton;
-
-  @FXML
-  private ComboBox<String> linefeedCombo;
-
-  @FXML
   private TextField rxCounterField;
 
   @FXML
   private TextField txCounterField;
 
   @FXML
-  private ToggleGroup formatToggleGroup;
+  private MenuButton infobutton;
+
+  @FXML
+  private CheckMenuItem twomenuItem;
+
+  @FXML
+  private HBox secondConnectionBar;
+
+  @FXML
+  private Button connectButton1;
+
+  @FXML
+  private ComboBox<String> devicesCombo1;
+
+  @FXML
+  private ComboBox<String> baudRateCombo1;
+
+  @FXML
+  private ComboBox<String> dataBitsCombo1;
+
+  @FXML
+  private ComboBox<String> stopbitsCombo1;
+
+  @FXML
+  private ComboBox<String> parityCombo1;
+
+  @FXML
+  private TextField rxCounterField1;
+
+  @FXML
+  private TextField txCounterField1;
+
+  @FXML
+  private Button infobutton1;
 
   private StyleClassedTextArea mainTextArea;
 
-  @FXML
-  private ChoiceBox<String> inputFormatCombo;
-
-  @FXML
-  private TextField sendTextField;
-
-  @FXML
-  private RadioButton showTXDataRadio;
-
-  @FXML
-  private RadioButton showRXDataRadio;
-
-  @FXML
-  private ChoiceBox<String> sendOnEnterCombo;
-
-  @FXML
-  private TreeView<Command> commandsTree;
-
-  @FXML
-  private AnchorPane mainAnchor;
-
-  @FXML
-  private Button infobutton;
-
   SerialInterface serial = new SerialInterface();
+  SerialInterface serial1 = new SerialInterface();
 
   Timer timer = null;
   MaskField myMaskField = new MaskField();
@@ -196,6 +260,7 @@ public class FXMLDocumentController implements Initializable {
   private int aktBatch = 0;
   private boolean isLastCharLF = true;
   private int lastEntryDirection = BYTE_READ;
+  private String lastEntryPort = "";
   private long lastTimeStamp = 0;
   private String debugString = "";
   private int lastLineMissing = 0;
@@ -224,45 +289,49 @@ public class FXMLDocumentController implements Initializable {
   }
 
   @FXML
-  void sendButtonAction(ActionEvent event) {
-    if (serial.isConnected()) {
+  void sendButtonAction(ActionEvent event) {  
+    
+    // textfieldentry
+    String str = myMaskField.getPlainText();
 
-      // textfieldentry
-      String str = myMaskField.getPlainText();
-
-      // remove from history list
-      if (historyList.contains(str)) {
-        historyList.remove(str);
-      }
-
-      // add new entry in history list
-      historyList.add(0, str);
-
-      //append character selected in onEnterCombo
-      switch (sendOnEnterCombo.getSelectionModel().getSelectedItem()) {
-        case "LF":
-          str += "\n";
-          break;
-        case "CR":
-          str += "\r";
-          break;
-        case "CR+LF":
-          str += "\r\n";
-          break;
-        case "Custom...":
-          se.setScript(Settings.getValue("CustomScript", ScriptEvaluator.defaultScript));
-          str = se.evaluate(toBytes(myMaskField.getPlainText()));
-          break;
-        default:
-          break;
-      }
-
-      // send character
-      serial.write(str);
-
-      // clear textfield
-      myMaskField.clear();//setText("");
+    // remove from history list
+    if (historyList.contains(str)) {
+      historyList.remove(str);
     }
+
+    // add new entry in history list
+    historyList.add(0, str);
+
+    //append character selected in onEnterCombo
+    switch (sendOnEnterCombo.getSelectionModel().getSelectedItem()) {
+      case "LF":
+        str += "\n";
+        break;
+      case "CR":
+        str += "\r";
+        break;
+      case "CR+LF":
+        str += "\r\n";
+        break;
+      case "Custom...":
+        se.setScript(Settings.getValue("CustomScript", ScriptEvaluator.defaultScript));
+        str = se.evaluate(toBytes(myMaskField.getPlainText()));
+        break;
+      default:
+        break;
+    }
+
+    if (port1Radio.isSelected() && (serial.isConnected())) {
+      // send character
+      serial.write(str);      
+    }
+    else if (port2Radio.isSelected() && (serial1.isConnected())) {
+      // send character
+      serial1.write(str);      
+    }
+    // clear textfield
+    myMaskField.clear();//setText("");
+
   }
 
   @FXML
@@ -272,10 +341,12 @@ public class FXMLDocumentController implements Initializable {
       mainTextArea.clear();
     });
     serial.setRxBytes(0);
+    serial1.setRxBytes(0);
     dataList.get().clear();
     numberOfBatches = 0;
     aktBatch = 0;
     lastEntryDirection = BYTE_UNKNOWN;
+    lastEntryPort = "";
     lastTimeStamp = 0;
     lastLineMissing = msSpinner.getValue();
 //    mainTextArea.setStyleClass(0, 100, "red");
@@ -290,8 +361,15 @@ public class FXMLDocumentController implements Initializable {
 
       if (serial.isConnected()) {
         closePort();
-
+        devicesCombo1.getItems().add(devicesCombo.getSelectionModel().getSelectedItem());
+        if (devicesCombo1.getSelectionModel().isEmpty()){
+          devicesCombo1.getSelectionModel().select(0);
+        }
       } else {
+        devicesCombo1.getItems().remove(devicesCombo.getSelectionModel().getSelectedItem());
+        if (devicesCombo1.getSelectionModel().isEmpty()){
+          devicesCombo1.getSelectionModel().select(0);
+        }
         serial.setBaudRate(Integer.parseInt(baudRateCombo.getValue()));
         serial.setDataBits(Integer.parseInt(dataBitsCombo.getValue()));
         serial.setParity(SerialInterface.Parity.valueOf(parityCombo.getValue()));
@@ -300,6 +378,43 @@ public class FXMLDocumentController implements Initializable {
         statusLabel.setText(devicesCombo.getSelectionModel().getSelectedItem() + ":  " + rv);
         if (serial.isConnected()) {
           connectButton.setText("Disconnect");
+        }
+        if (!serial1.isConnected()){
+          port1Radio.setSelected(true);
+        }
+      }
+    }
+    setConnectionLabel();
+  }
+
+  @FXML
+  void connectButton1Action(ActionEvent event) {
+    if (devicesCombo1.getSelectionModel().isEmpty()) {
+      statusLabel.setText("Select a valid Port");
+    } else {
+
+      if (serial1.isConnected()) {
+        closePort1();
+        devicesCombo.getItems().add(devicesCombo1.getSelectionModel().getSelectedItem());
+        if (devicesCombo.getSelectionModel().isEmpty()){
+          devicesCombo.getSelectionModel().select(0);
+        }
+      } else {
+        devicesCombo.getItems().remove(devicesCombo1.getSelectionModel().getSelectedItem());
+        if (devicesCombo.getSelectionModel().isEmpty()){
+          devicesCombo.getSelectionModel().select(0);
+        }
+        serial1.setBaudRate(Integer.parseInt(baudRateCombo1.getValue()));
+        serial1.setDataBits(Integer.parseInt(dataBitsCombo1.getValue()));
+        serial1.setParity(SerialInterface.Parity.valueOf(parityCombo1.getValue()));
+        serial1.setStopBit(Integer.parseInt(stopbitsCombo1.getValue()));
+        String rv = serial1.connect(devicesCombo1.getSelectionModel().getSelectedItem());
+        statusLabel.setText(devicesCombo1.getSelectionModel().getSelectedItem() + ":  " + rv);
+        if (serial1.isConnected()) {
+          connectButton1.setText("Disconnect");
+        }
+        if (!serial.isConnected()){
+          port2Radio.setSelected(true);
         }
       }
     }
@@ -354,13 +469,31 @@ public class FXMLDocumentController implements Initializable {
 
   @Override
   public void initialize(URL url, ResourceBundle rb) {
+    VBox connectionVBox = (VBox) secondConnectionBar.getParent();
+    if (!Settings.getValue("TwoPorts", true)) {
+      connectionVBox.getChildren().remove(secondConnectionBar);
+      showPort2Radio.setSelected(false);
+      port1Radio.setSelected(true);
+      portBox1.setVisible(false);
+      portBox.setVisible(false);
+    }
+
     // Fill and handle Parity Combobox 
-    parityCombo.getItems().removeAll(baudRateCombo.getItems());
+    parityCombo.getItems().removeAll(parityCombo.getItems());
     parityCombo.getItems().addAll(Arrays.stream(SerialInterface.Parity.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.name())).toArray(String[]::new));
     parityCombo.getSelectionModel().select(Settings.getValue("Parity", "NONE"));
     parityCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
       Settings.setValue("Parity", parityCombo.getSelectionModel().getSelectedItem());
       serial.setParity(SerialInterface.Parity.valueOf(parityCombo.getValue()));
+      setConnectionLabel();
+    });
+
+    parityCombo1.getItems().removeAll(parityCombo1.getItems());
+    parityCombo1.getItems().addAll(Arrays.stream(SerialInterface.Parity.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.name())).toArray(String[]::new));
+    parityCombo1.getSelectionModel().select(Settings.getValue("Parity", "NONE"));
+    parityCombo1.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("Parity1", parityCombo1.getSelectionModel().getSelectedItem());
+      serial1.setParity(SerialInterface.Parity.valueOf(parityCombo1.getValue()));
       setConnectionLabel();
     });
 
@@ -374,6 +507,15 @@ public class FXMLDocumentController implements Initializable {
       setConnectionLabel();
     });
 
+    baudRateCombo1.getItems().removeAll(baudRateCombo1.getItems());
+    baudRateCombo1.getItems().addAll(Arrays.stream(SerialInterface.BaudRate.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
+    baudRateCombo1.getSelectionModel().select(Settings.getValue("Baudrate", "115200"));
+    baudRateCombo1.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("Baudrate", baudRateCombo1.getSelectionModel().getSelectedItem());
+      serial1.setBaudRate(Integer.parseInt(baudRateCombo1.getValue()));
+      setConnectionLabel();
+    });
+
     // Fill and handle Databits Combobox 
     dataBitsCombo.getItems().removeAll(dataBitsCombo.getItems());
     dataBitsCombo.getItems().addAll(Arrays.stream(SerialInterface.Data.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
@@ -381,6 +523,14 @@ public class FXMLDocumentController implements Initializable {
     dataBitsCombo.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
       Settings.setValue("Databits", dataBitsCombo.getSelectionModel().getSelectedItem());
       serial.setDataBits(Integer.parseInt(dataBitsCombo.getValue()));
+      setConnectionLabel();
+    });
+    dataBitsCombo1.getItems().removeAll(dataBitsCombo1.getItems());
+    dataBitsCombo1.getItems().addAll(Arrays.stream(SerialInterface.Data.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
+    dataBitsCombo1.getSelectionModel().select(Settings.getValue("Databits", "8"));
+    dataBitsCombo1.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("Databits", dataBitsCombo1.getSelectionModel().getSelectedItem());
+      serial1.setDataBits(Integer.parseInt(dataBitsCombo1.getValue()));
       setConnectionLabel();
     });
 
@@ -393,6 +543,34 @@ public class FXMLDocumentController implements Initializable {
       serial.setStopBit(Integer.parseInt(stopbitsCombo.getValue()));
       setConnectionLabel();
     });
+    stopbitsCombo1.getItems().removeAll(stopbitsCombo1.getItems());
+    stopbitsCombo1.getItems().addAll(Arrays.stream(SerialInterface.Stop.class.getEnumConstants()).map((aEnum) -> String.valueOf(aEnum.getValue())).toArray(String[]::new));
+    stopbitsCombo1.getSelectionModel().select(Settings.getValue("Stopbits", "1"));
+    stopbitsCombo1.valueProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      Settings.setValue("Stopbits", stopbitsCombo1.getSelectionModel().getSelectedItem());
+      serial1.setStopBit(Integer.parseInt(stopbitsCombo1.getValue()));
+      setConnectionLabel();
+    });
+
+    Image image1 = new Image(FXMLDocumentController.class.getResource("/resources/pics/Mimes_White_close.png").toExternalForm(), 25, 25, true, true);
+    ImageView imageView1 = new ImageView(image1);
+    infobutton1.setGraphic(imageView1);
+    infobutton1.setStyle("-fx-padding: 0;-fx-background-radius: 0;");
+    infobutton1.setOnAction((ActionEvent event) -> {
+      Platform.runLater(() -> {
+        connectionVBox.getChildren().remove(secondConnectionBar);
+        twomenuItem.setSelected(false);
+        showPort2Radio.setSelected(false);
+        port1Radio.setSelected(true);
+        if (serial1.isConnected()) {
+          closePort1();
+        }
+        portBox.setVisible(false);
+        portBox1.setVisible(false);
+        Settings.setValue("TwoPorts", false);
+      });
+    });
+    infobutton1.setTooltip(new Tooltip("Close second Communication channel!"));
 
     // Fill and handle millisecond or bytenumber Spinner
     msSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 1000, Settings.getValue("#ofms", 1), 1));
@@ -435,6 +613,12 @@ public class FXMLDocumentController implements Initializable {
       requestclear = true;
     });
     showRXDataRadio.selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
+      requestclear = true;
+    });
+    showPort1Radio.selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
+      requestclear = true;
+    });
+    showPort2Radio.selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
       requestclear = true;
     });
 
@@ -526,7 +710,7 @@ public class FXMLDocumentController implements Initializable {
     AnchorPane.setLeftAnchor(vsp, 0.);
     AnchorPane.setRightAnchor(vsp, 0.);
     // enable time measurements between bytes on hover(display timestamp) or selection (display timedifference)
-    mainTextArea.setMouseOverTextDelay(Duration.ofMillis(500));
+    mainTextArea.setMouseOverTextDelay(java.time.Duration.ofMillis(500));
     Popup popup = new Popup();
     Label popupMsg = new Label();
     popupMsg.setStyle(
@@ -583,6 +767,30 @@ public class FXMLDocumentController implements Initializable {
     mainTextArea.setEditable(false);
     mainTextArea.showCaretProperty().setValue(Caret.CaretVisibility.ON);
 
+    final Tooltip tooltip = new Tooltip();
+    devicesCombo.setTooltip(tooltip);
+    // change tooltip time
+    try {
+      Tooltip obj = new Tooltip();
+      Class<?> clazz = obj.getClass().getDeclaredClasses()[0];
+      Constructor<?> constructor = clazz.getDeclaredConstructor(
+              Duration.class,
+              Duration.class,
+              Duration.class,
+              boolean.class);
+      constructor.setAccessible(true);
+      Object tooltipBehavior = constructor.newInstance(
+              new Duration(250L), //open
+              new Duration(50000L), //visible
+              new Duration(200L), //close
+              false);
+      Field fieldBehavior = obj.getClass().getDeclaredField("BEHAVIOR");
+      fieldBehavior.setAccessible(true);
+      fieldBehavior.set(obj, tooltipBehavior);
+    } catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | NoSuchMethodException | SecurityException | InstantiationException | InvocationTargetException e) {
+      logger.error(e.getMessage());
+    }
+
     // add listener to devicelist and close Device if disconnected
     devicesCombo.getItems().addListener((ListChangeListener.Change<? extends String> c) -> {
       if (serial.isConnected()) {
@@ -594,11 +802,17 @@ public class FXMLDocumentController implements Initializable {
           });
         }
       }
+      tooltip.setText(myRunnable.getDeviceInfo(devicesCombo.getSelectionModel().getSelectedItem()));
     });
 
+    devicesCombo.getSelectionModel().selectedItemProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      tooltip.setText(myRunnable.getDeviceInfo(newValue));
+    });
     // display number of received and transmitted bytes
     Bindings.bindBidirectional(rxCounterField.textProperty(), serial.rxBytesProperty(), sc);
     Bindings.bindBidirectional(txCounterField.textProperty(), serial.txBytesProperty(), sc);
+    Bindings.bindBidirectional(rxCounterField1.textProperty(), serial1.rxBytesProperty(), sc);
+    Bindings.bindBidirectional(txCounterField1.textProperty(), serial1.txBytesProperty(), sc);
 
     // start deviceDiscovery and listeners 
     deviceDiscovery();
@@ -606,13 +820,25 @@ public class FXMLDocumentController implements Initializable {
     // add listeners for read and written data and fill datalist
     serial.lastReadProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
       if (!"".equals(newValue)) {
-        dataList.add(numberOfBatches, new DisplayData(numberOfBatches, BYTE_READ, System.currentTimeMillis(), newValue));
+        dataList.add(numberOfBatches, new DisplayData("PORT_1", numberOfBatches, BYTE_READ, System.currentTimeMillis(), newValue));
         numberOfBatches++;
       }
     });
     serial.lastWriteProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
       if (!"".equals(newValue)) {
-        dataList.add(numberOfBatches, new DisplayData(numberOfBatches, BYTE_WRITE, System.currentTimeMillis(), newValue));
+        dataList.add(numberOfBatches, new DisplayData("PORT_1", numberOfBatches, BYTE_WRITE, System.currentTimeMillis(), newValue));
+        numberOfBatches++;
+      }
+    });
+    serial1.lastReadProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      if (!"".equals(newValue)) {
+        dataList.add(numberOfBatches, new DisplayData("PORT_2", numberOfBatches, BYTE_READ, System.currentTimeMillis(), newValue));
+        numberOfBatches++;
+      }
+    });
+    serial1.lastWriteProperty().addListener((ObservableValue<? extends String> observable, String oldValue, String newValue) -> {
+      if (!"".equals(newValue)) {
+        dataList.add(numberOfBatches, new DisplayData("PORT_2", numberOfBatches, BYTE_WRITE, System.currentTimeMillis(), newValue));
         numberOfBatches++;
       }
     });
@@ -627,11 +853,25 @@ public class FXMLDocumentController implements Initializable {
     }, 0, 20);
 
     // add info button for Info of app
-    Image image = new Image(FXMLDocumentController.class.getResource("/resources/pics/Mimes_White_info.png").toExternalForm(), 34, 34, true, true);
+    Image image = new Image(FXMLDocumentController.class.getResource("/resources/pics/Mimes_White_menu.png").toExternalForm(), 25, 25, true, true);
     ImageView imageView = new ImageView(image);
     infobutton.setGraphic(imageView);
-    infobutton.setStyle("-fx-padding: 0 0 0 0;");
+//    infobutton.setStyle("-fx-padding: 0 0 0 0;");
 
+    twomenuItem.setSelected(Settings.getValue("TwoPorts", true));
+    portBox.setVisible(Settings.getValue("TwoPorts", true));
+    twomenuItem.selectedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
+      Settings.setValue("TwoPorts", newValue);
+      portBox.setVisible(newValue);
+      showPort2Radio.setSelected(newValue);
+      portBox1.setVisible(newValue);
+      if (newValue) {
+        connectionVBox.getChildren().add(secondConnectionBar);
+      } else {
+        connectionVBox.getChildren().remove(secondConnectionBar);
+        port1Radio.setSelected(true);
+      }
+    });
     // fill commands treeview 
     populateTreeView();
 
@@ -677,6 +917,13 @@ public class FXMLDocumentController implements Initializable {
     connectButton.setText("Connect");
   }
 
+  private void closePort1() {
+
+    serial1.close();
+    statusLabel.setText("Port closed: " + devicesCombo1.getSelectionModel().getSelectedItem());
+    connectButton1.setText("Connect");
+  }
+
   public static String[] Split(String text, int chunkSize, int maxLength) {
     char[] data = text.toCharArray();
     int len = Math.min(data.length, maxLength);
@@ -694,7 +941,6 @@ public class FXMLDocumentController implements Initializable {
     // get number of LF    
     int numberOfLF = s.substring(0, selectedCharIndex).split("\n").length;
 
-//    logger.info("Selected Index: "+selectedCharIndex+", #LF: "+numberOfLF);
     int currentPos = 0;
     for (DisplayData dd : dataList.get()) {
       currentPos += dd.bytes.length();
@@ -715,6 +961,7 @@ public class FXMLDocumentController implements Initializable {
     int number = numberOfBatches;
     // variable to store direction for correct formatting
     int aktEntryDirection = BYTE_READ;
+    String aktEntryPort = "";
 
     // buffer to store data
     DisplayData dd;
@@ -732,6 +979,7 @@ public class FXMLDocumentController implements Initializable {
     if (requestclearCopy) {
       aktBatch = 0;
       lastEntryDirection = BYTE_UNKNOWN;
+      lastEntryPort = "";
       lastTimeStamp = 0;
       lastLineMissing = msSpinner.getValue();
     }
@@ -750,10 +998,20 @@ public class FXMLDocumentController implements Initializable {
       if ((dd.direction == BYTE_READ) && !showRXDataRadio.isSelected()) {
         continue;
       }
+      // if port of entry (PORT_1) is not shown continue
+      if (("PORT_1".equals(dd.port)) && !showPort1Radio.isSelected()) {
+        continue;
+      }
+      // if port of entry (PORT_2) is not shown continue
+      if (("PORT_2".equals(dd.port)) && !showPort2Radio.isSelected()) {
+        continue;
+      }
 
       // if direction changes add newline char to textfield (except first line or newline is already present)
       if ((dd.direction != lastEntryDirection)
+              && (!dd.port.equals(lastEntryPort))
               && (lastEntryDirection != BYTE_UNKNOWN)
+              && (!"".equals(lastEntryPort))
               && (!isLastCharLF)) {
         newEntry += "\n";
       } // if timedifference is greater than selected value add newlinechar (except first line or newline is already present)
@@ -775,8 +1033,20 @@ public class FXMLDocumentController implements Initializable {
         // break loop
         break;
       }
+
+      // if port changes break loop and display data with specific formating 
+      if (!dd.port.equals(lastEntryPort)) {
+        // store aktual batch
+        aktBatch = i;
+        // store direction
+        lastEntryPort = dd.port;
+        // break loop
+        break;
+      }
+
       // store direction
       aktEntryDirection = dd.direction;
+      aktEntryPort = dd.port;
 
       // decide hex or ascii
       if (((RadioButton) formatToggleGroup.getSelectedToggle()).getText().equals("ASCII")) {
@@ -849,6 +1119,9 @@ public class FXMLDocumentController implements Initializable {
     // copy direction to not loose entry in FX update thread
     int bufferDirection = aktEntryDirection;
 
+    // copy port to not loose entry in FX update thread
+    String bufferPort = aktEntryPort;
+
     // if new string is available append to FX update thread
     if (bufferStr.length() > 0) {
 
@@ -867,10 +1140,20 @@ public class FXMLDocumentController implements Initializable {
         mainTextArea.appendText(bufferStr);
 
         // do appropriate style 
-        if (bufferDirection == BYTE_READ) {
-          mainTextArea.setStyleClass(mainTextArea.getText().length() - bufferStr.length(), mainTextArea.getText().length(), "green");
-        } else {
-          mainTextArea.setStyleClass(mainTextArea.getText().length() - bufferStr.length(), mainTextArea.getText().length(), "red");
+        if (bufferPort.equals("PORT_1")) {
+          if (bufferDirection == BYTE_READ) {
+            mainTextArea.setStyleClass(mainTextArea.getText().length() - bufferStr.length(), mainTextArea.getText().length(), "rx_port1");
+          } else {
+            mainTextArea.setStyleClass(mainTextArea.getText().length() - bufferStr.length(), mainTextArea.getText().length(), "tx_port1");
+          }
+        } else if (bufferPort.equals("PORT_2")) {
+          if (bufferDirection == BYTE_READ) {
+            mainTextArea.setStyleClass(mainTextArea.getText().length() - bufferStr.length(), mainTextArea.getText().length(), "rx_port2");
+          } else {
+            mainTextArea.setStyleClass(mainTextArea.getText().length() - bufferStr.length(), mainTextArea.getText().length(), "tx_port2");
+
+          }
+
         }
 
         // if autoscroll then last paragraph is alwaiys selected
@@ -915,7 +1198,7 @@ public class FXMLDocumentController implements Initializable {
     commandsTree.setRoot(rootItem);
     commandsTree.setShowRoot(false);
     commandsTree.setCellFactory((TreeView<Command> p) -> new TextFieldTreeCellImpl());
-    commandsTree.editableProperty().bind(serial.connectedProperty().not());
+    commandsTree.editableProperty().bind(serial.connectedProperty().not().and(serial1.connectedProperty().not()));
 
     EventHandler<MouseEvent> mouseEventHandle = (MouseEvent event) -> {
       handleMouseClicked(event);
@@ -926,7 +1209,7 @@ public class FXMLDocumentController implements Initializable {
   }
 
   private void handleMouseClicked(MouseEvent event) {
-    if ((serial.isConnected()) && (event.getClickCount() == 2) && (event.getButton().equals(MouseButton.PRIMARY))) {
+    if ((serial.isConnected()|| serial1.isConnected()) && (event.getClickCount() == 2) && (event.getButton().equals(MouseButton.PRIMARY))) {
       Node node = event.getPickResult().getIntersectedNode();
       // Accept clicks only on node cells, and not on empty spaces of the TreeView
       if (node instanceof Text || (node instanceof TreeCell && ((TreeCell) node).getText() != null)) {
@@ -955,8 +1238,14 @@ public class FXMLDocumentController implements Initializable {
             break;
         }
 
-        // send character
-        serial.write(str);
+        if (port1Radio.isSelected() && serial.isConnected()){
+          // send character
+          serial.write(str);
+        }
+        else if (port2Radio.isSelected() && serial1.isConnected()){
+          // send character
+          serial1.write(str);
+        }
       }
     }
   }
@@ -970,7 +1259,8 @@ public class FXMLDocumentController implements Initializable {
         c.setName(Settings.getValue("TreeviewItemBase" + i, ""));
 
         TreeItem<Command> newItem = new TreeItem<>(c);
-        newItem.setExpanded(true);
+
+        newItem.setExpanded(Settings.getValue("TreeviewItemBase" + i + ".colapsed", true));
         rootItem.getChildren().add(newItem);
 
         do {
@@ -1047,6 +1337,7 @@ public class FXMLDocumentController implements Initializable {
         }
       }
       p.setProperty("TreeviewItemBase" + i, child.getValue().getName());
+      p.setProperty("TreeviewItemBase" + i + ".colapsed", "" + child.isExpanded());
       for (TreeItem<Command> grandchild : child.getChildren()) {
         p.setProperty("TreeviewItemChild" + i + "_" + j + ".Name", grandchild.getValue().getName());
         p.setProperty("TreeviewItemChild" + i + "_" + j + ".Value", grandchild.getValue().getValue());
@@ -1082,8 +1373,7 @@ public class FXMLDocumentController implements Initializable {
       logger.error(ex.getMessage());
     }
 
-
-     int i = 0, j = 0;
+    int i = 0, j = 0;
     do {
       if (Settings.hasValue("TreeviewItemBase" + i)) {
         Command c = new Command();
@@ -1094,7 +1384,7 @@ public class FXMLDocumentController implements Initializable {
         rootItem.getChildren().add(newItem);
 
         do {
-          if (p.getProperty("TreeviewItemChild" + i + "_" + j + ".Name")!=null) {
+          if (p.getProperty("TreeviewItemChild" + i + "_" + j + ".Name") != null) {
             Command cChild = new Command();
             cChild.setName(p.getProperty("TreeviewItemChild" + i + "_" + j + ".Name", ""));
             cChild.setLinefeed(p.getProperty("TreeviewItemChild" + i + "_" + j + ".Linefeed", ""));
@@ -1118,7 +1408,6 @@ public class FXMLDocumentController implements Initializable {
       j = 0;
     } while (true);
 
-    
   }
 
   private void treeViewModified() {
@@ -1126,6 +1415,7 @@ public class FXMLDocumentController implements Initializable {
     int i = 0, j = 0;
     for (TreeItem<Command> child : rootItem.getChildren()) {
       Settings.setValue("TreeviewItemBase" + i, child.getValue().getName());
+      Settings.setValue("TreeviewItemBase" + i + ".colapsed", "" + child.isExpanded());
       for (TreeItem<Command> grandchild : child.getChildren()) {
         Settings.setValue("TreeviewItemChild" + i + "_" + j + ".Name", grandchild.getValue().getName());
         Settings.setValue("TreeviewItemChild" + i + "_" + j + ".Value", grandchild.getValue().getValue());
@@ -1138,11 +1428,12 @@ public class FXMLDocumentController implements Initializable {
     }
   }
 
+  MonitorRunnable myRunnable = null;
+
   public void deviceDiscovery() {
     // Indicate Start Discovery
     logger.info("Start Discovery");
 
-    MonitorRunnable myRunnable = null;
     // Check Operatin System
     String osname = System.getProperty("os.name");
     logger.trace("Operating System: <" + osname + ">");
@@ -1175,11 +1466,16 @@ public class FXMLDocumentController implements Initializable {
         c.next();
         if (c.wasAdded()) {
           devicesCombo.getItems().addAll(c.getAddedSubList());
+          devicesCombo1.getItems().addAll(c.getAddedSubList());
         } else {
           devicesCombo.getItems().removeAll(c.getRemoved());
+          devicesCombo1.getItems().removeAll(c.getRemoved());
         }
         if (devicesCombo.getSelectionModel().isEmpty()) {
           devicesCombo.getSelectionModel().select(0);
+        }
+        if (devicesCombo1.getSelectionModel().isEmpty()) {
+          devicesCombo1.getSelectionModel().select(0);
         }
       });
     }
@@ -1382,8 +1678,7 @@ public class FXMLDocumentController implements Initializable {
         }
       });
       textField.focusedProperty().addListener((ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) -> {
-        // if focus lost
-        logger.info("Hier bin cih " + newValue);
+        // if focus lost        
         if (!newValue) {
           cancelEdit();
         }

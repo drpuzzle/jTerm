@@ -2,9 +2,12 @@
 
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.CheckMenuItem?>
 <?import javafx.scene.control.ChoiceBox?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.MenuButton?>
+<?import javafx.scene.control.MenuItem?>
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.Spinner?>
@@ -20,7 +23,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane id="AnchorPane" fx:id="mainAnchorPane" prefHeight="482.0" prefWidth="753.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="serialmonitor.FXMLDocumentController">
+<AnchorPane id="AnchorPane" fx:id="mainAnchorPane" prefHeight="482.0" prefWidth="850.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="serialmonitor.FXMLDocumentController">
   <children>
       <BorderPane prefHeight="557.0" prefWidth="907.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
          <bottom>
@@ -55,6 +58,7 @@
                               <Font size="11.0" />
                            </font>
                         </Button>
+                        <Separator orientation="VERTICAL" prefHeight="19.0" prefWidth="13.0" />
                         <Label text="Newline at">
                            <font>
                               <Font size="10.0" />
@@ -62,39 +66,6 @@
                         </Label>
                         <Spinner fx:id="msSpinner" editable="true" nodeOrientation="LEFT_TO_RIGHT" prefHeight="26.0" prefWidth="60.0" style="-fx-font-size: 11; -fx-padding: 0;" />
                         <ComboBox fx:id="linefeedCombo" prefHeight="26.0" prefWidth="83.0" style="-fx-font-size: 11;" />
-                        <Separator orientation="VERTICAL" prefHeight="18.0" prefWidth="13.0" />
-                        <VBox prefHeight="0.0" prefWidth="100.0">
-                           <children>
-                              <HBox prefHeight="100.0" prefWidth="200.0">
-                                 <children>
-                                    <Label prefWidth="24.0" text="RX:">
-                                       <font>
-                                          <Font size="11.0" />
-                                       </font>
-                                    </Label>
-                                    <TextField fx:id="rxCounterField" alignment="CENTER_RIGHT" prefHeight="15.0" prefWidth="76.0">
-                                       <font>
-                                          <Font size="8.0" />
-                                       </font>
-                                    </TextField>
-                                 </children>
-                              </HBox>
-                              <HBox prefHeight="100.0" prefWidth="200.0">
-                                 <children>
-                                    <Label prefWidth="24.0" text="TX:">
-                                       <font>
-                                          <Font size="11.0" />
-                                       </font>
-                                    </Label>
-                                    <TextField fx:id="txCounterField" alignment="CENTER_RIGHT" prefHeight="16.0" prefWidth="76.0">
-                                       <font>
-                                          <Font size="8.0" />
-                                       </font>
-                                    </TextField>
-                                 </children>
-                              </HBox>
-                           </children>
-                        </VBox>
                         <Separator orientation="VERTICAL" prefHeight="19.0" prefWidth="13.0" />
                         <CheckBox fx:id="autoscrollCheck" mnemonicParsing="false" text="Autoscroll">
                            <font>
@@ -139,7 +110,20 @@
                               </RadioButton>
                            </children>
                         </VBox>
-                        <Separator orientation="VERTICAL" prefHeight="19.0" prefWidth="13.0" />
+                        <VBox fx:id="portBox1" prefHeight="26.0" prefWidth="42.0">
+                           <children>
+                              <RadioButton fx:id="showPort1Radio" mnemonicParsing="false" selected="true" text="Port1">
+                                 <font>
+                                    <Font size="9.0" />
+                                 </font>
+                              </RadioButton>
+                              <RadioButton fx:id="showPort2Radio" mnemonicParsing="false" selected="true" text="Port2">
+                                 <font>
+                                    <Font size="9.0" />
+                                 </font>
+                              </RadioButton>
+                           </children>
+                        </VBox>
                      </items>
                   </ToolBar>
                </top>
@@ -163,6 +147,23 @@
                               <Font size="11.0" />
                            </font></Button>
                         <Separator orientation="VERTICAL" prefHeight="26.0" prefWidth="15.0" />
+                        <VBox fx:id="portBox" prefHeight="26.0" prefWidth="56.0">
+                           <children>
+                              <RadioButton fx:id="port1Radio" mnemonicParsing="false" selected="true" text="Port1">
+                                 <font>
+                                    <Font size="9.0" />
+                                 </font>
+                                 <toggleGroup>
+                                    <ToggleGroup fx:id="portToggleGroup" />
+                                 </toggleGroup>
+                              </RadioButton>
+                              <RadioButton fx:id="port2Radio" mnemonicParsing="false" text="Port2" toggleGroup="$portToggleGroup">
+                                 <font>
+                                    <Font size="9.0" />
+                                 </font>
+                              </RadioButton>
+                           </children>
+                        </VBox>
                      </children>
                   </HBox>
                </bottom>
@@ -181,50 +182,169 @@
             </BorderPane>
          </center>
          <top>
-            <HBox BorderPane.alignment="CENTER">
+            <VBox BorderPane.alignment="CENTER">
                <children>
-                  <ToolBar prefHeight="28.0" HBox.hgrow="ALWAYS">
-                    <items>
-                      <Button fx:id="connectButton" mnemonicParsing="false" onAction="#connectButtonAction" prefWidth="94.0" text="Connect">
-                           <font>
-                              <Font size="11.0" />
-                           </font>
-                        </Button>
-                        <Label prefHeight="14.0" prefWidth="28.0" text="Port">
-                           <font>
-                              <Font size="11.0" />
-                           </font>
-                        </Label>
-                        <ComboBox fx:id="devicesCombo" editable="true" prefHeight="26.0" prefWidth="132.0" style="-fx-font-size: 11;" />
-                        <Label prefHeight="14.0" prefWidth="37.0" text="Baud">
-                           <font>
-                              <Font size="11.0" />
-                           </font>
-                        </Label>
-                        <ComboBox fx:id="baudRateCombo" editable="true" prefHeight="26.0" prefWidth="89.0" promptText="115200" style="-fx-font-size: 11;" />
-                        <Label prefHeight="14.0" prefWidth="31.0" text="Data">
-                           <font>
-                              <Font size="11.0" />
-                           </font>
-                        </Label>
-                        <ComboBox fx:id="dataBitsCombo" prefHeight="26.0" prefWidth="30.0" promptText="8" style="-fx-font-size: 11;" />
-                        <Label prefHeight="14.0" prefWidth="35.0" text="Stop">
-                           <font>
-                              <Font size="11.0" />
-                           </font>
-                        </Label>
-                        <ComboBox fx:id="stopbitsCombo" prefHeight="26.0" prefWidth="30.0" promptText="1" style="-fx-font-size: 11;" />
-                        <Label prefHeight="14.0" prefWidth="38.0" text="Parity">
-                           <font>
-                              <Font size="11.0" />
-                           </font>
-                        </Label>
-                        <ComboBox fx:id="parityCombo" prefHeight="26.0" prefWidth="78.0" promptText="None" style="-fx-font-size: 11;" />
-                    </items>
-                  </ToolBar>
-                  <Button fx:id="infobutton" mnemonicParsing="false" onAction="#infoAction" prefHeight="37.0" prefWidth="37.0" />
+                  <HBox VBox.vgrow="NEVER">
+                     <children>
+                        <ToolBar prefHeight="28.0" HBox.hgrow="ALWAYS">
+                          <items>
+                            <Button fx:id="connectButton" mnemonicParsing="false" onAction="#connectButtonAction" prefWidth="94.0" text="Connect">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Button>
+                              <Label prefHeight="14.0" prefWidth="28.0" text="Port">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="devicesCombo" editable="true" prefHeight="26.0" prefWidth="132.0" style="-fx-font-size: 11;" />
+                              <Label prefHeight="14.0" prefWidth="37.0" text="Baud">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="baudRateCombo" editable="true" prefHeight="26.0" prefWidth="89.0" promptText="115200" style="-fx-font-size: 11;" />
+                              <Label prefHeight="14.0" prefWidth="31.0" text="Data">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="dataBitsCombo" prefHeight="26.0" prefWidth="30.0" promptText="8" style="-fx-font-size: 11;" />
+                              <Label prefHeight="14.0" prefWidth="35.0" text="Stop">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="stopbitsCombo" prefHeight="26.0" prefWidth="30.0" promptText="1" style="-fx-font-size: 11;" />
+                              <Label prefHeight="14.0" prefWidth="38.0" text="Parity">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="parityCombo" prefHeight="26.0" prefWidth="78.0" promptText="None" style="-fx-font-size: 11;" />
+                              <Separator orientation="VERTICAL" prefHeight="18.0" prefWidth="13.0" />
+                              <VBox prefHeight="0.0" prefWidth="100.0">
+                                 <children>
+                                    <HBox prefHeight="100.0" prefWidth="200.0">
+                                       <children>
+                                          <Label prefWidth="24.0" text="RX:">
+                                             <font>
+                                                <Font size="11.0" />
+                                             </font>
+                                          </Label>
+                                          <TextField fx:id="rxCounterField" alignment="CENTER_RIGHT" prefHeight="15.0" prefWidth="76.0">
+                                             <font>
+                                                <Font size="8.0" />
+                                             </font>
+                                          </TextField>
+                                       </children>
+                                    </HBox>
+                                    <HBox prefHeight="100.0" prefWidth="200.0">
+                                       <children>
+                                          <Label prefWidth="24.0" text="TX:">
+                                             <font>
+                                                <Font size="11.0" />
+                                             </font>
+                                          </Label>
+                                          <TextField fx:id="txCounterField" alignment="CENTER_RIGHT" prefHeight="16.0" prefWidth="76.0">
+                                             <font>
+                                                <Font size="8.0" />
+                                             </font>
+                                          </TextField>
+                                       </children>
+                                    </HBox>
+                                 </children>
+                              </VBox>
+                          </items>
+                        </ToolBar>
+                        <MenuButton id="menuStyle" fx:id="infobutton" mnemonicParsing="false" prefHeight="38.0" prefWidth="37.0">
+                          <items>
+                              <CheckMenuItem fx:id="twomenuItem" mnemonicParsing="false" text="Two Interfaces" />
+                            <MenuItem mnemonicParsing="false" onAction="#infoAction" text="About" />
+                          </items>
+                        </MenuButton>
+                     </children>
+                  </HBox>
+                  <HBox fx:id="secondConnectionBar" VBox.vgrow="NEVER">
+                     <children>
+                        <ToolBar prefHeight="28.0" HBox.hgrow="ALWAYS">
+                           <items>
+                              <Button fx:id="connectButton1" mnemonicParsing="false" onAction="#connectButton1Action" prefWidth="94.0" text="Connect">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Button>
+                              <Label prefHeight="14.0" prefWidth="28.0" text="Port">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="devicesCombo1" editable="true" prefHeight="26.0" prefWidth="132.0" style="-fx-font-size: 11;" />
+                              <Label prefHeight="14.0" prefWidth="37.0" text="Baud">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="baudRateCombo1" editable="true" prefHeight="26.0" prefWidth="89.0" promptText="115200" style="-fx-font-size: 11;" />
+                              <Label prefHeight="14.0" prefWidth="31.0" text="Data">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="dataBitsCombo1" prefHeight="26.0" prefWidth="30.0" promptText="8" style="-fx-font-size: 11;" />
+                              <Label prefHeight="14.0" prefWidth="35.0" text="Stop">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="stopbitsCombo1" prefHeight="26.0" prefWidth="30.0" promptText="1" style="-fx-font-size: 11;" />
+                              <Label prefHeight="14.0" prefWidth="38.0" text="Parity">
+                                 <font>
+                                    <Font size="11.0" />
+                                 </font>
+                              </Label>
+                              <ComboBox fx:id="parityCombo1" prefHeight="26.0" prefWidth="78.0" promptText="None" style="-fx-font-size: 11;" />
+                              <Separator orientation="VERTICAL" prefHeight="18.0" prefWidth="13.0" />
+                              <VBox prefHeight="0.0" prefWidth="100.0">
+                                 <children>
+                                    <HBox prefHeight="100.0" prefWidth="200.0">
+                                       <children>
+                                          <Label prefWidth="24.0" text="RX:">
+                                             <font>
+                                                <Font size="11.0" />
+                                             </font>
+                                          </Label>
+                                          <TextField fx:id="rxCounterField1" alignment="CENTER_RIGHT" prefHeight="15.0" prefWidth="76.0">
+                                             <font>
+                                                <Font size="8.0" />
+                                             </font>
+                                          </TextField>
+                                       </children>
+                                    </HBox>
+                                    <HBox prefHeight="100.0" prefWidth="200.0">
+                                       <children>
+                                          <Label prefWidth="24.0" text="TX:">
+                                             <font>
+                                                <Font size="11.0" />
+                                             </font>
+                                          </Label>
+                                          <TextField fx:id="txCounterField1" alignment="CENTER_RIGHT" prefHeight="16.0" prefWidth="76.0">
+                                             <font>
+                                                <Font size="8.0" />
+                                             </font>
+                                          </TextField>
+                                       </children>
+                                    </HBox>
+                                 </children>
+                              </VBox>
+                           </items>
+                        </ToolBar>
+                        <Button fx:id="infobutton1" mnemonicParsing="false" onAction="#infoAction" prefHeight="37.0" prefWidth="37.0" />
+                     </children>
+                  </HBox>
                </children>
-            </HBox>
+            </VBox>
          </top>
       </BorderPane>
   </children>

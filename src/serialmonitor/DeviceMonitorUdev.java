@@ -5,9 +5,9 @@
  */
 package serialmonitor;
 
-
-
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import javafx.beans.property.ListProperty;
 import javafx.beans.property.SimpleListProperty;
 import javafx.collections.FXCollections;
@@ -28,6 +28,7 @@ public class DeviceMonitorUdev implements MonitorRunnable {
   private boolean interrupt = false;
   private final Logger logger = LogManager.getLogger(DeviceMonitorUdev.class.getSimpleName());
   private final ListProperty<String> deviceList = new SimpleListProperty<>(FXCollections.observableArrayList(new ArrayList<>()));
+  private final Map<String, org.freedesktop.libudev.Device> deviceMap = new HashMap<>();
 
   public ObservableList getDeviceList() {
     return deviceList.get();
@@ -41,8 +42,8 @@ public class DeviceMonitorUdev implements MonitorRunnable {
   public ListProperty deviceListProperty() {
     return deviceList;
   }
-  
-  public void startThread(){
+
+  public void startThread() {
     Thread th = new Thread(this);
     th.setDaemon(true);
     th.setName("Monitoring Thread");
@@ -53,10 +54,18 @@ public class DeviceMonitorUdev implements MonitorRunnable {
     interrupt = true;
   }
 
+  private void addDevice(org.freedesktop.libudev.Device dev) {
+    // Register new Device in DeviceManager        
+    logger.trace("Found Device: " + dev.getDevnode());
+    deviceList.get().add(dev.getDevnode());
+    deviceMap.put(dev.getDevnode(), dev);
+
+  }
+
   private void scanDevices() {
     // Create the udev object 
     LibUdev udev = LibUdev.create();
-logger.debug("Enter DeviceMonitorUdev Run");
+    logger.debug("Enter DeviceMonitorUdev Run");
     // Get Startup Devices
     Enumerate enumerate = Enumerate.create(udev);
 
@@ -88,20 +97,18 @@ logger.debug("Enter DeviceMonitorUdev Run");
       // Filter only valid tty Ports
       // Up to now only USB Ports are valid
       if (dev.getPropertyValue("ID_BUS") != null) {
-        // Register new Device in DeviceManager           
-        logger.trace("Found Device: " + dev.getDevnode());    
-        deviceList.get().add(dev.getDevnode());
+        addDevice(dev);
+
       } else {
       }
     }
 
   }
- 
+
   @Override
   @SuppressWarnings("SleepWhileInLoop")
   public void run() {
     logger.debug("Enter DeviceMonitorUdev Run");
-
 
     // Single Scan at startup
     scanDevices();
@@ -144,15 +151,15 @@ logger.debug("Enter DeviceMonitorUdev Run");
 
       // Different Action
       switch (dev.getAction()) {
-        case "add":          
-            // New tty Device in DeviceManager       
-            logger.trace("Add Device: " + dev.getDevnode());
-            deviceList.get().add(dev.getDevnode());
+        case "add":
+          addDevice(dev);
+
           break;
-        case "remove":          
-            // Remove tty Device in DeviceManager
-            logger.trace("Remove Device: " + dev.getDevnode());          
-            deviceList.get().remove(dev.getDevnode());
+        case "remove":
+          // Remove tty Device in DeviceManager
+          logger.trace("Remove Device: " + dev.getDevnode());
+          deviceList.get().remove(dev.getDevnode());
+          deviceMap.remove(dev.getDevnode());
           break;
         default:
           // should not occur
@@ -162,5 +169,27 @@ logger.debug("Enter DeviceMonitorUdev Run");
     }
   }
 
-  
+  @Override
+  public String getDeviceInfo(String dev) {
+    if (deviceMap.containsKey(dev)) {
+      String str = "";
+      ListEntry ll = deviceMap.get(dev).getSysattr();
+      do {
+        str += ll.getName() + ":\t" + deviceMap.get(dev).getSysattrValue(ll.getName()) + "\n";
+      } while ((ll = ll.getNext()) != null);
+      ll = deviceMap.get(dev).getProperties();
+      do {
+        str += ll.getName() + ":\t" + deviceMap.get(dev).getPropertyValue(ll.getName()) + "\n";
+      } while ((ll = ll.getNext()) != null);
+      ll = deviceMap.get(dev).getTags();
+      do {
+        str += ll.getName() + ":\t" + deviceMap.get(dev).getPropertyValue(ll.getName()) + "\n";
+      } while ((ll = ll.getNext()) != null);
+
+      return str;
+    } else {
+      return "";
+    }
+  }
+
 }

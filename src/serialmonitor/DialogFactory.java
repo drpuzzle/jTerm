@@ -192,14 +192,13 @@ public class DialogFactory {
           + "<b>jTerm </b><br>"          
           + "see on github <a href=\"https://github.com/drpuzzle/jTerm\">jTerm</a><br><br>"
           + "Serial Terminal written in Java using JavaFX  <br>"
-          + "Used libraries"
+          + "Used external libraries"
           + "<ul>"
           + "<li>modified <a href=\"https://github.com/scream3r/java-simple-serial-connector\">JSSC v2.8.0</a> </li>"
           + "<li><a href=\"https://github.com/Zubnix/udev-java-bindings\">udev library</a> </li>"
           + "<li><a href=\"https://github.com/FXMisc/RichTextFX\">RichtextFX</a> </li>"
           + "<li><a href = \"http://www.iconarchive.com/show/leaf-mimes-icons-by-untergunter.html\">Icons</a> under <a href=\"http://creativecommons.org/licenses/by-nc-sa/4.0/\">Creative Commons</a></li>"
-          + "<li></li>"
-          + "<li></li>"
+          + "<li>Maskfield based on <a href=\"https://github.com/vas7n/VAMaskField\">VAMaskField</a></li>"          
           + "</ul>";
 
   public static void showInfoDialog() {

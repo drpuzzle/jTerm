@@ -25,7 +25,7 @@ and open the template in the editor.
     -fx-background-insets: 0, 1, 2;
 }
 
-.red {
+/*.red {
     -fx-fill: red;
     -fx-font-size:11;
     -fx-font-family: FreeMono2;    
@@ -35,7 +35,34 @@ and open the template in the editor.
     -fx-fill: green;
     -fx-font-size:11;
     -fx-font-family: FreeMono2;    
+}*/
+
+.tx_port2 {
+    -fx-fill: orange;
+    -fx-font-size:11;
+    -fx-font-family: FreeMono2;    
 }
+
+.rx_port2 {
+    -fx-fill: blue;
+    -fx-font-size:11;
+    -fx-font-family: FreeMono2;    
+}
+
+
+.tx_port1 {
+    -fx-fill: red;
+    -fx-font-size:11;
+    -fx-font-family: FreeMono2;    
+}
+
+.rx_port1 {
+    -fx-fill: green;
+    -fx-font-size:11;
+    -fx-font-family: FreeMono2;    
+}
+
+
 
 .blue {
     -fx-fill: blue;
@@ -43,4 +70,56 @@ and open the template in the editor.
 
 .bold {
     -fx-font-weight: bold;
+}
+
+#menuStyle{
+    /*-fx-background-color: transparent;*/
+    -fx-background-color: -fx-shadow-highlight-color,-fx-outer-border, -fx-inner-border, -fx-body-color;
+    /*-fx-background-insets: 0;*/
+    /*-fx-background-insets:  0, 0, 1, 2;*/
+    -fx-padding: 0 0 0 0;
+    -fx-background-radius: 0px, 0px, 0px, 0px;
+    /*-fx-background-insets: 0 0 -1 0, 0;*/
+}
+#menuStyle .arrow,
+#menuStyle .arrow-button{
+    -fx-background-color: transparent;
+    -fx-padding: 0;  
+}
+
+
+/* this part is from  default stiles fxrt.jar!/com/sun/javafx/scene/control/skin/caspian/caspian.css */
+#menuStyle:hover{
+    -fx-background-color: -fx-shadow-highlight-color, -fx-outer-border, -fx-inner-border, -fx-body-color;
+    -fx-background-radius: 5, 5, 4, 3;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+#menuStyle  .label {
+  -fx-alignment: CENTER;
+  -fx-padding: 0 0 0 0;
+}
+
+#menuStyle:showing > .arrow-button {
+    -fx-color: -fx-pressed-base;
+}
+
+/*#menuStyle > .arrow-button {
+    -fx-background-color: green;
+}*/
+
+#menuStyle:hover > .arrow-button{
+    -fx-padding: 2 3 2 3;  
+}
+
+#menuStyle:hover > .arrow-button > .arrow{
+    /*-fx-background-insets: 1 0 -1 0, 0;*/
+    -fx-background-color: -fx-mark-highlight-color, -fx-mark-color;
+    /*-fx-background-color: green;*/
+    /*-fx-padding: 0.166667em 0.166667em 0.166667em 0.166667em;*/  
+    -fx-padding: 2 3 2 3;  
+    
+    /*-fx-shape: "M 0 -3.5 v 7 l 4 -3.5 z";*/
+    -fx-shape: "M 0 0 h 7 l -3.5 4 z";
 }

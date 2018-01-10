@@ -19,7 +19,6 @@ import javax.script.ScriptException;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import org.apache.log4j.Logger;
 
-
 public class ScriptEvaluator {
 
   Logger logger = Logger.getLogger(ScriptEvaluator.class);

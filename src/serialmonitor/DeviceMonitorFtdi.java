@@ -120,4 +120,10 @@ public class DeviceMonitorFtdi implements MonitorRunnable {
 
   }
 
+  @Override
+  public String getDeviceInfo(String dev) {
+    logger.info("Device Information not supported");
+    return "Device Information not supported";
+  }
+
 }

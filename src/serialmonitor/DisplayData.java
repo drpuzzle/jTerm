@@ -14,8 +14,10 @@ public class DisplayData {
     int direction;
     long timestamp; 
     String bytes;
+    String port;
     
-    public DisplayData(int number, int direction, long timestamp,  String str){
+    public DisplayData(String port, int number, int direction, long timestamp,  String str){
+      this.port = port;
       this.number = number;
       this.direction = direction;
       this.bytes = str;

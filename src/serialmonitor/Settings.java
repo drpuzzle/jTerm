@@ -15,7 +15,7 @@ import java.util.*;
  */
 public class Settings extends Object {
   
-  public static final String version = "0.12";
+  public static final String version = "0.13";
 
     private static Settings instance = null;
     private static Properties defaultProperties;

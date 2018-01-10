@@ -8,10 +8,6 @@ package serialmonitor;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
-/**
- *
-
- */
 public class Command {
 
   private final StringProperty value = new SimpleStringProperty("");

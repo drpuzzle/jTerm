@@ -235,6 +235,7 @@ public class MaskField extends TextField {
     String textMask = "";
     String textPlain = getPlainText();
     int cycles = 0;
+    
     do {
       for (int i = 0; i < objectMask.size(); i++) {
         Position p = objectMask.get(i);
@@ -282,7 +283,7 @@ public class MaskField extends TextField {
 
     if (textPlain.length() > counterPlainCharInMask) {
       textPlain = textPlain.substring(0, counterPlainCharInMask);
-//      logger.info("Text Longer");
+
     }
 
     if (!textPlain.equals(getPlainText())) {
@@ -309,6 +310,27 @@ public class MaskField extends TextField {
     return posPlain;
   }
 
+  private int interpretPlainPositionInMaskPosition(int plainPos) {
+    int posPlain = 0;
+    int cycles = 0;
+    
+    do{
+      for (int i = 0; i < objectMask.size() ; i++) {
+        Position p = objectMask.get(i);
+        cycles++;
+        if (p.isPlainCharacter()) {
+          posPlain++;
+        }
+
+        if (posPlain >= plainPos) return cycles;
+      }
+    }while(isCyclic && (posPlain < plainPos));
+
+    return cycles;
+  }
+
+  // plaintext is the text without mask characters 
+  
   @Override
   public void replaceText(int start, int end, String text) {
 
@@ -328,9 +350,9 @@ public class MaskField extends TextField {
     } else {
       plainText2 = "";
     }
-//    logger.info("PosPlain: "+plainText1+" -- "+text+" -- "+plainText2+" --:"+plainStart+"-::-"+plainEnd+" : "+start+" : "+end);
     setPlainText(plainText1 + text + plainText2);
-
+    selectRange(interpretPlainPositionInMaskPosition((plainText1 + text).length()), 
+            interpretPlainPositionInMaskPosition((plainText1 + text).length()));
   }
   
   @Override

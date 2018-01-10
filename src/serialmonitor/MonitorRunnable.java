@@ -14,4 +14,5 @@ import javafx.beans.property.ListProperty;
 public interface MonitorRunnable extends  Runnable {
 
   public ListProperty deviceListProperty();
+  public String getDeviceInfo(String dev);
 }

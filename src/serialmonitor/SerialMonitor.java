@@ -28,7 +28,7 @@ public class SerialMonitor extends Application {
     stage.setTitle("JTerm "+Settings.version);
     scene.getStylesheets().add(SerialMonitor.class.getResource("/stylesheet.css").toExternalForm());
     stage.getIcons().add(new Image(getClass()
-            .getResourceAsStream("/puzzle_small.png")
+            .getResourceAsStream("/resources/pics/Mimes_White_opera-extension.png")
     ));
     stage.setScene(scene);
     stage.show();
